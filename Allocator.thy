@@ -471,14 +471,14 @@ locale SchedulingAllocator =
   fixes ReturnFair :: "Client \<Rightarrow> temporal"
   defines "ReturnFair c \<equiv> TEMP WF(\<exists>S. id<$unsat,#c> = #{} \<and> id<$alloc,#c> = #S \<and> Return c S)_vars"
     (* fairness of Allocate *)
-  fixes AllocateFair :: "Client \<Rightarrow> temporal"
-  defines "AllocateFair c \<equiv> TEMP WF(\<exists>S. Allocate c S)_vars"
+  fixes AllocateHeadFair :: temporal
+  defines "AllocateHeadFair \<equiv> TEMP WF(\<exists>S c. #c = hd<$sched> \<and> Allocate c S)_vars"
     (* fairness of Schedule *)
   fixes ScheduleFair :: temporal
   defines "ScheduleFair \<equiv> TEMP WF(Schedule)_vars"
     (* full specification *)
   fixes SchedulingAllocator :: temporal
-  defines "SchedulingAllocator \<equiv> TEMP (Init InitState \<and> \<box>[Next]_vars \<and>  (\<forall>c. ReturnFair c) \<and> (\<forall>c. AllocateFair c) \<and> ScheduleFair)"
+  defines "SchedulingAllocator \<equiv> TEMP (Init InitState \<and> \<box>[Next]_vars \<and>  (\<forall>c. ReturnFair c) \<and> AllocateHeadFair \<and> ScheduleFair)"
     (* mutual exclusion safety property *)
   fixes MutualExclusion :: stpred
   defines "MutualExclusion \<equiv> PRED \<forall> c1 c2. #c1 \<noteq> #c2 \<longrightarrow> id<alloc,#c1> \<inter> id<alloc,#c2> = #{}"
@@ -1602,8 +1602,8 @@ proof -
                         \<leadsto> #c \<notin> set<sched> \<or> (\<exists>y. #(y < i) \<and> #y = inductor c \<and> #c \<in> set<sched>))"
       proof (intro imp_exists_leadstoI WF1_SchedulingAllocator_states)
         fix topPriority
-        show "\<turnstile> SchedulingAllocator \<longrightarrow>  WF(\<exists>S. Allocate topPriority S)_vars"
-          by (auto simp add: SchedulingAllocator_def AllocateFair_def)
+        show "\<turnstile> SchedulingAllocator \<longrightarrow>  WF(\<exists>S ct. #ct = hd<$sched> \<and> Allocate ct S)_vars"
+          by (auto simp add: SchedulingAllocator_def AllocateHeadFair_def)
 
         fix s t
         assume s_Safety: "Safety s" and Next: "(s,t) \<Turnstile> [Next]_vars"
@@ -1614,9 +1614,9 @@ proof -
         hence s: "i = inductor c s" "topPriority = hd (sched s)" "c \<in> set (sched s)" "unsat s (hd (sched s)) \<inter> available s \<noteq> {}" by auto
         from s have hpc_topPriority: "higherPriorityClients topPriority s = {}" unfolding higherPriorityClients_def by (cases "sched s", auto)
 
-        have simp1: "(ACT (<\<exists>S. Allocate topPriority S>_vars)) = (ACT \<exists>S. ((<Allocate topPriority S>_vars)))" by (auto simp add: angle_def)
-        show "s \<Turnstile> Enabled (<\<exists>S. Allocate topPriority S>_vars)"
-          unfolding simp1 angle_Allocate proof (intro enabled_exI enabled_AllocateI)
+        have simp1: "(ACT (<\<exists>S ct. #ct = hd<$sched> \<and> Allocate ct S>_vars)) = (ACT \<exists>S ct. #ct = hd<$sched> \<and> (<Allocate ct S>_vars))" by (auto simp add: angle_def)
+        show "s \<Turnstile> Enabled (<\<exists>S ct. #ct = hd<$sched> \<and> Allocate ct S>_vars)"
+          unfolding simp1 angle_Allocate proof (intro enabled_exI enabled_AllocateI enabled_guard_conjI)
           from s show "unsat s (hd (sched s)) \<inter> available s \<noteq> {}" by simp
           from s show "topPriority \<in> set (sched s)" by (cases "sched s", auto)
         qed (unfold hpc_topPriority, auto simp add: s)
@@ -1684,7 +1684,8 @@ proof -
           qed
         qed
 
-        assume assm_Allocate: "(s, t) \<Turnstile> <\<exists>S. Allocate topPriority S>_vars"
+        assume "(s,t) \<Turnstile> <\<exists>S ct. #ct = hd<$sched> \<and> Allocate ct S>_vars"
+        hence assm_Allocate: "(s,t) \<Turnstile> \<exists>S. <Allocate topPriority S>_vars" using s by (auto simp add: angle_def)
 
         from progress_cases
         show "t \<Turnstile> #c \<notin> set<sched> \<or> (\<exists>y. #(y < i) \<and> #y = inductor c \<and> #c \<in> set<sched>)"
