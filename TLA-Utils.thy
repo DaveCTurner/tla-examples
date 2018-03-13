@@ -246,11 +246,9 @@ proof -
   have "\<turnstile> S \<longrightarrow> (T \<leadsto> P)"
   proof (rule imp_leadsto_triangle_excl)
     show "\<turnstile> S \<longrightarrow> (T \<leadsto> T)" by (intro imp_imp_leadsto, simp)
-    from assms show "\<turnstile> S \<longrightarrow> (T \<and> \<not> P \<leadsto> P)"
-      by (simp add: T_def)
+    from assms show "\<turnstile> S \<longrightarrow> (T \<and> \<not> P \<leadsto> P)" by (simp add: T_def)
   qed
-  thus ?thesis
-    by (simp add: leadsto_def T_def)
+  thus ?thesis by (simp add: leadsto_def T_def)
 qed
 
 lemma imp_infinitely_often_implies_eventually:
