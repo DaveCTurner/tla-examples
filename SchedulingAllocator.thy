@@ -180,10 +180,6 @@ next
   qed
 qed
 
-lemma set_takeWhile_filter_subset:
-  "x1 \<noteq> x2 \<Longrightarrow> set (takeWhile (op \<noteq> x1) (filter (op \<noteq> x2) xs)) \<subseteq> set (takeWhile (op \<noteq> x1) xs)"
-  by (induct xs, auto)
-
 lemma RequestE:
   assumes "(s,t) \<Turnstile> Request c S"
   assumes "\<lbrakk> S \<noteq> {}; finite S; unsat s c = {}; alloc s c = {};
@@ -624,11 +620,13 @@ proof (intro actionI temp_impI, elim temp_conjE, unfold unl_before unl_after)
             from True c1 have ne1: "c1 \<noteq> c" by auto
             with r1 show "r \<in> alloc s c1" by auto
 
+            define cs where "cs \<equiv> sched s"
+
             from c2 have "c2 \<in> set (takeWhile (op \<noteq> c1) (filter (op \<noteq> c) (sched s)))"
               by (auto simp add: higherPriorityClients_def True)
             also have "... \<subseteq> higherPriorityClients c1 s"
               unfolding higherPriorityClients_def
-              by (intro set_takeWhile_filter_subset ne1)
+              apply (fold cs_def) using ne1 by (induct cs, auto)
             finally show c2: "c2 \<in> ..." .
           qed
 
