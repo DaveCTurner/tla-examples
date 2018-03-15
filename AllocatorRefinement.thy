@@ -32,34 +32,9 @@ proof (intro temp_imp_conjI imp_forall)
   proof (intro STL4 actionI temp_impI)
     fix s t
     assume "(s,t) \<Turnstile> [Next]_vars"
-    then consider
-      (unchanged)         "(s,t) \<Turnstile> unchanged vars"
-      | (Request)  "\<exists> c S. (s,t) \<Turnstile> Request c S"
-      | (Allocate) "\<exists> c S. (s,t) \<Turnstile> Allocate c S"
-      | (Return)   "\<exists> c S. (s,t) \<Turnstile> Return c S"
-      | (Schedule)        "(s,t) \<Turnstile> Schedule"
-      unfolding square_def Next_def by fastforce
-
-    thus "(s, t) \<Turnstile> [Next_Simple]_(unsat, alloc)"
-    proof cases
-      case unchanged thus ?thesis by (simp add: vars_def square_def)
-    next
-      case Schedule thus ?thesis by (simp add: vars_def square_def Schedule_def)
-    next
-      case Request then obtain c S where st: "(s,t) \<Turnstile> Request c S" by fastforce
-      hence "(s,t) \<Turnstile> Request_Simple c S" by (simp add: Simple.Request_def Request_def updated_def)
-      thus ?thesis by (auto simp add: square_def Simple.Next_def)
-    next
-      case Return
-      then obtain c S where st: "(s,t) \<Turnstile> Return c S" by fastforce
-      hence "(s,t) \<Turnstile> Return_Simple c S" by (simp add: Simple.Return_def Return_def updated_def)
-      thus ?thesis by (auto simp add: square_def Simple.Next_def)
-    next
-      case Allocate
-      then obtain c S where st: "(s,t) \<Turnstile> Allocate c S" by fastforce
-      hence "(s,t) \<Turnstile> Allocate_Simple c S" by (simp add: Simple.Allocate_def Allocate_def updated_def)
-      thus ?thesis by (auto simp add: square_def Simple.Next_def)
-    qed
+    thus "(s,t) \<Turnstile> [Next_Simple]_(unsat, alloc)"
+      apply (cases rule: square_Next_cases, unfold Simple.Next_def Simple.Request_def Simple.Return_def Simple.Allocate_def updated_def square_def)
+      by (simp+, blast)+
   qed
   finally show "\<turnstile> SchedulingAllocator \<longrightarrow> \<box>[Next_Simple]_(unsat, alloc)".
 
@@ -116,18 +91,16 @@ proof (intro temp_imp_conjI imp_forall)
     show "\<turnstile> #c \<in> set<sched> \<longrightarrow> #c \<in> set<sched>" by simp
 
     show "\<turnstile> SchedulingAllocator \<longrightarrow> (id<unsat, #c> \<noteq> #{} \<and> #c \<notin> set<sched> \<leadsto> #c \<in> set<sched>)"
-    proof (intro WF1_SchedulingAllocator_states)
-      show "\<turnstile> SchedulingAllocator \<longrightarrow> WF(Schedule)_vars" by (auto simp add: SchedulingAllocator_def ScheduleFair_def)
+    proof (intro WF1_SchedulingAllocator_Schedule)
       fix s t
       assume Safety: "s \<Turnstile> Safety" and Next: "(s,t) \<Turnstile> [Next]_vars"
       assume "s \<Turnstile> id<unsat, #c> \<noteq> #{} \<and> #c \<notin> set<sched>"
       hence s: "unsat s c \<noteq> {}" "c \<notin> set (sched s)" by auto
 
-      from s Safety show "s \<Turnstile> Enabled (<Schedule>_vars)"
-        by (auto simp add: Safety_def AllocatorInvariant_def)
+      from s Safety show "s \<Turnstile> pool \<noteq> #{}" "s \<Turnstile> finite<pool>" by (auto simp add: Safety_def AllocatorInvariant_def)
 
       from s Safety show "(s, t) \<Turnstile> <Schedule>_vars \<Longrightarrow> t \<Turnstile> #c \<in> set<sched>"
-        by (simp, auto simp add: Schedule_def Safety_def AllocatorInvariant_def)
+        by (simp, auto simp add: Schedule_def Safety_def AllocatorInvariant_def angle_def)
 
       from Next have "unsat t c \<noteq> {}"
       proof (cases rule: square_Next_cases)

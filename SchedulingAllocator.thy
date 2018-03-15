@@ -87,7 +87,6 @@ begin
 
 lemma SafetyI:
   assumes "\<And>c1 c2. c1 \<noteq> c2 \<Longrightarrow> alloc s c1 \<inter> alloc s c2 = {}"
-  assumes "\<And>c. finite (unsat s c)"
   assumes "\<And>c. c \<in> pool s \<Longrightarrow> unsat s c \<noteq> {}"
   assumes "\<And>c. c \<in> pool s \<Longrightarrow> alloc s c = {}"
   assumes "\<And>c. c \<in> set (sched s) \<Longrightarrow> unsat s c \<noteq> {}"
@@ -107,34 +106,65 @@ lemma SafetyI:
 
 lemma square_Next_cases [consumes 1, case_names unchanged Request Schedule Allocate Return]:
   assumes Next: "(s,t) \<Turnstile> [Next]_vars"
-  assumes unchanged: "\<lbrakk> unsat t = unsat s; alloc t = alloc s; pool t = pool s; sched t = sched s \<rbrakk> \<Longrightarrow> P"
+  assumes unchanged: "
+    \<lbrakk> unsat t = unsat s;
+      alloc t = alloc s;
+      pool t = pool s;
+      sched t = sched s
+    \<rbrakk> \<Longrightarrow> P"
   assumes Request: "\<And>c S.
-    \<lbrakk> S \<noteq> {}; finite S; unsat s c = {}; alloc s c = {};
-      unsat t = modifyAt (unsat s) c (add S); unsat t c = S; pool t = insert c (pool s);
-      alloc t = alloc s; sched t = sched s; available t = available s;
-      \<And>c'. higherPriorityClients c' t = higherPriorityClients c' s  \<rbrakk> \<Longrightarrow> P"
+    \<lbrakk> S \<noteq> {};
+      finite S;
+      unsat s c = {};
+      alloc s c = {};
+      unsat t = modifyAt (unsat s) c (add S);
+      unsat t c = S;
+      pool t = insert c (pool s);
+      alloc t = alloc s;
+      sched t = sched s;
+      available t = available s;
+      \<And>c'. higherPriorityClients c' t = higherPriorityClients c' s
+    \<rbrakk> \<Longrightarrow> P"
   assumes Schedule: "\<And>poolOrder.
-    \<lbrakk> pool s \<noteq> {}; pool t = {}; set poolOrder = pool s; distinct poolOrder;
-      sched t = sched s @ poolOrder; unsat t = unsat s; alloc t = alloc s;
-      \<And>c'. c' \<in> set (sched s) \<Longrightarrow> higherPriorityClients c' t = higherPriorityClients c' s \<rbrakk> \<Longrightarrow> P"
+    \<lbrakk> pool s \<noteq> {};
+      pool t = {};
+      set poolOrder = pool s;
+      distinct poolOrder;
+      sched t = sched s @ poolOrder;
+      unsat t = unsat s;
+      alloc t = alloc s;
+      \<And>c'. c' \<in> set (sched s) \<Longrightarrow> higherPriorityClients c' t = higherPriorityClients c' s
+    \<rbrakk> \<Longrightarrow> P"
   assumes Allocate: "\<And>c S.
-    \<lbrakk> S \<noteq> {}; S \<subseteq> available s; S \<subseteq> unsat s c; c \<in> set (sched s);
+    \<lbrakk> S \<noteq> {};
+      S \<subseteq> available s;
+      S \<subseteq> unsat s c;
+      c \<in> set (sched s);
       \<And>c' r'. c' \<in> higherPriorityClients c s \<Longrightarrow> r' \<in> unsat s c' \<Longrightarrow> r' \<in> S \<Longrightarrow> False;
       sched t = (if S = unsat s c then filter (op \<noteq> c) (sched s) else sched s);
-      alloc t = modifyAt (alloc s) c (add S); alloc t c = alloc s c \<union> S;
-      unsat t = modifyAt (unsat s) c (del S); unsat t c = unsat s c - S;
-      pool t = pool s; available t = available s - S;
-            \<And>c'. higherPriorityClients c' t
-                = (if S = unsat s c
-                    then if c' = c
-                      then set (sched t)
-                      else higherPriorityClients c' s - {c}
-                    else higherPriorityClients c' s) \<rbrakk> \<Longrightarrow> P"
+      alloc t = modifyAt (alloc s) c (add S);
+      alloc t c = alloc s c \<union> S;
+      unsat t = modifyAt (unsat s) c (del S);
+      unsat t c = unsat s c - S;
+      pool t = pool s;
+      available t = available s - S;
+      \<And>c'. higherPriorityClients c' t
+          = (if S = unsat s c
+              then if c' = c
+                then set (sched t)
+                else higherPriorityClients c' s - {c}
+              else higherPriorityClients c' s)
+    \<rbrakk> \<Longrightarrow> P"
   assumes Return: "\<And>c S.
-    \<lbrakk> S \<noteq> {}; S \<subseteq> alloc s c; alloc t = modifyAt (alloc s) c (del S);
-      unsat t = unsat s; pool t = pool s; sched t = sched s;
+    \<lbrakk> S \<noteq> {};
+      S \<subseteq> alloc s c;
+      alloc t = modifyAt (alloc s) c (del S);
+      unsat t = unsat s;
+      pool t = pool s;
+      sched t = sched s;
       available s \<subseteq> available t;
-      \<And>c'. higherPriorityClients c' t = higherPriorityClients c' s \<rbrakk> \<Longrightarrow> P"
+      \<And>c'. higherPriorityClients c' t = higherPriorityClients c' s
+    \<rbrakk> \<Longrightarrow> P"
   shows P
 proof -
   from Next have "((s,t) \<Turnstile> Next) \<or> ((s,t) \<Turnstile> unchanged vars)" by (auto simp add: square_def)
@@ -154,18 +184,12 @@ proof -
     next
       case p: Allocate
       then obtain c S where p: "(s,t) \<Turnstile> Allocate c S" by auto
-      show P
+      from p show P
       proof (intro Allocate)
-        from p show "S \<noteq> {}" "S \<subseteq> available s" "S \<subseteq> unsat s c" "c \<in> set (sched s)"
-          "\<And>c' r'. c' \<in> higherPriorityClients c s \<Longrightarrow> r' \<in> unsat s c' \<Longrightarrow> r' \<in> S \<Longrightarrow> False"
+        from p show "S \<subseteq> available s" "alloc t = modifyAt (alloc s) c (add S)"
           "sched t = (if S = unsat s c then filter (op \<noteq> c) (sched s) else sched s)"
-          "pool t = pool s"
-          "alloc t = modifyAt (alloc s) c (add S)" "alloc t c = alloc s c \<union> S" 
-          "unsat t = modifyAt (unsat s) c (del S)" "unsat t c = unsat s c - S"
           by (auto simp add: Allocate_def updated_def)
-
-        from `S \<subseteq> available s` `alloc t = modifyAt (alloc s) c (add S)`
-        show "available t = available s - S"
+        thus "available t = available s - S"
           unfolding available_def
           apply auto
             apply (metis add_simp modifyAt_eq_simp modifyAt_ne_simp)
@@ -184,7 +208,7 @@ proof -
         show "\<And>c'. higherPriorityClients c' t = (if S = unsat s c then if c' = c then set (sched t) else higherPriorityClients c' s - {c} else higherPriorityClients c' s)"
           unfolding higherPriorityClients_def `sched t = (if S = unsat s c then filter (op \<noteq> c) (sched s) else sched s)`
           by (fold cs_def, induct cs, auto simp add: simp2 simp3)
-      qed
+      qed (auto simp add: Allocate_def updated_def)
     next 
       case p: Schedule
 
@@ -207,54 +231,6 @@ proof -
     assume "(s,t) \<Turnstile> unchanged vars" with unchanged show P by (auto simp add: vars_def)
   qed
 qed
-
-lemma enabled_ScheduleI:
-  assumes "pool s \<noteq> {}" "finite (pool s)"
-  shows "s \<Turnstile> Enabled Schedule"
-  using assms basevars [OF bv]
-  unfolding enabled_def Schedule_def updated_def apply auto by (metis finite_distinct_list)
-
-lemma enabled_Schedule_eq[simp]:
-  shows "(PRED Enabled Schedule) = (PRED pool \<noteq> #{} \<and> finite<pool>)"
-  apply (intro ext iffI enabled_ScheduleI, auto simp add: enabled_def Schedule_def)
-  by (metis List.finite_set)
-
-lemma angle_Schedule[simp]:
-  "(ACT <Schedule>_vars) = Schedule"
-  by (intro ext, auto simp add: angle_def Schedule_def vars_def updated_def)
-
-lemma enabled_AllocateI:
-  assumes "S \<noteq> {}" "S \<subseteq> available s" "S \<subseteq> unsat s c" "c \<in> set (sched s)"
-    "\<And>c' r'. c' \<in> higherPriorityClients c s \<Longrightarrow> r' \<in> unsat s c' \<Longrightarrow> r' \<in> S \<Longrightarrow> False"
-  shows "s \<Turnstile> Enabled (Allocate c S)"
-  using assms basevars [OF bv]
-  unfolding enabled_def Allocate_def updated_def apply auto by meson
-
-lemma enabled_Allocate_eq[simp]:
-  shows "(PRED Enabled (Allocate c S)) = (PRED #S \<noteq> #{} \<and> #S \<subseteq> available \<and> #S \<subseteq> id<unsat,#c>
-    \<and> #c \<in> set<sched> \<and> (\<forall>c' r'. #c' \<in> higherPriorityClients c \<longrightarrow> id<unsat,#c'> \<inter> #S = #{}))"
-  by (intro ext iffI enabled_AllocateI, auto simp add: enabled_def Allocate_def)
-
-lemma angle_Allocate[simp]:
-  "(ACT <Allocate c S>_vars) = Allocate c S"
-  apply (intro ext, auto simp add: angle_def Allocate_def updated_def vars_def)
-   apply (metis del_simp modifyAt_eq_simp)
-  by (metis del_simp modifyAt_eq_simp subsetCE)
-
-lemma enabled_ReturnI:
-  assumes "S \<noteq> {}" "S \<subseteq> alloc s c"
-  shows "s \<Turnstile> Enabled (Return c S)"
-  using assms basevars [OF bv]
-  unfolding enabled_def Return_def updated_def by (auto, blast)
-
-lemma enabled_Return_eq[simp]:
-  shows "(PRED Enabled (Return c S)) = (PRED #S \<noteq> #{} \<and> #S \<subseteq> id<alloc,#c>)"
-  by (intro ext iffI enabled_ReturnI, auto simp add: enabled_def Return_def)
-
-lemma angle_Return[simp]:
-  "(ACT <Return c S>_vars) = Return c S"
-  apply (intro ext, auto simp add: angle_def Return_def vars_def updated_def)
-  by (metis del_simp modifyAt_eq_simp subsetCE)
 
 lemma Safety_step: "\<turnstile> $Safety \<and> [Next]_vars \<longrightarrow> Safety$"
 proof (intro actionI temp_impI, elim temp_conjE, unfold unl_before unl_after)
@@ -279,10 +255,6 @@ proof (intro actionI temp_impI, elim temp_conjE, unfold unl_before unl_after)
       from MutualExclusion
       show "\<And>c1 c2. c1 \<noteq> c2 \<Longrightarrow> alloc t c1 \<inter> alloc t c2 = {}"
         by (simp add: MutualExclusion_def)
-
-      from Request AllocatorInvariant
-      show "\<And>c'. finite (unsat t c')"
-        by (simp add: AllocatorInvariant_def modifyAt_def)
 
       from AllocatorInvariant
       show
@@ -317,9 +289,6 @@ proof (intro actionI temp_impI, elim temp_conjE, unfold unl_before unl_after)
       from MutualExclusion
       show "\<And>c1 c2. c1 \<noteq> c2 \<Longrightarrow> alloc t c1 \<inter> alloc t c2 = {}"
         by (auto simp add: MutualExclusion_def)
-
-      from AllocatorInvariant
-      show "\<And>c. finite (unsat t c)" by (simp add: AllocatorInvariant_def)
 
       show "\<And>c. c \<in> pool t \<Longrightarrow> unsat t c \<noteq> {}"
         "\<And>c. c \<in> pool t \<Longrightarrow> alloc t c = {}"
@@ -367,10 +336,6 @@ proof (intro actionI temp_impI, elim temp_conjE, unfold unl_before unl_after)
       qed
       with MutualExclusion show "\<And>c1 c2. c1 \<noteq> c2 \<Longrightarrow> alloc t c1 \<inter> alloc t c2 = {}"
         by (auto simp add: MutualExclusion_def modifyAt_def)
-
-      from AllocatorInvariant
-      show "\<And>c. finite (unsat t c)"
-        by (simp add: AllocatorInvariant_def modifyAt_def del_def)
 
       from AllocatorInvariant
       show
@@ -507,9 +472,6 @@ proof (intro actionI temp_impI, elim temp_conjE, unfold unl_before unl_after)
         by blast+
 
       from AllocatorInvariant
-      show "\<And>c. finite (unsat t c)" by (simp add: AllocatorInvariant_def)
-
-      from AllocatorInvariant
       show
         "\<And>c. c \<in> pool t \<Longrightarrow> unsat t c \<noteq> {}"
         "\<And>c. c \<in> pool t \<Longrightarrow> alloc t c = {}"
@@ -542,6 +504,119 @@ proof invariant
     from sigma show "sigma \<Turnstile> \<box>[Next]_vars"
       by (simp add: SchedulingAllocator_def)
   qed
+qed
+
+lemma WF1_SchedulingAllocator:
+  assumes 1: "\<turnstile> SchedulingAllocator \<longrightarrow> WF(A)_v"
+  assumes 2: "\<And>s t. s \<Turnstile> P \<Longrightarrow> s \<Turnstile> Safety \<Longrightarrow> (s,t) \<Turnstile> [Next]_vars \<Longrightarrow> s \<Turnstile> Enabled (<A>_v)"
+  assumes 3: "\<And>s t. s \<Turnstile> P \<Longrightarrow> s \<Turnstile> Safety \<Longrightarrow> (s,t) \<Turnstile> [Next]_vars \<Longrightarrow> t \<Turnstile> P \<or> Q"
+  assumes 4: "\<And>s t. s \<Turnstile> P \<Longrightarrow> s \<Turnstile> Safety \<Longrightarrow> (s,t) \<Turnstile> [Next]_vars \<Longrightarrow> (s,t) \<Turnstile> <A>_v \<Longrightarrow> t \<Turnstile> Q"
+  shows      "\<turnstile> SchedulingAllocator \<longrightarrow> (P \<leadsto> Q)"
+proof -
+  from 1 safety have "\<turnstile> SchedulingAllocator \<longrightarrow> \<box>($Safety \<and> [Next]_vars) \<and> WF(A)_v"
+    by (auto simp add: SchedulingAllocator_def more_temp_simps Valid_def)
+  also from 2 3 4 have "\<turnstile> \<box>($Safety \<and> [Next]_vars) \<and> WF(A)_v \<longrightarrow> (P \<leadsto> Q)"
+    apply (intro WF1 assms) by (auto simp add: Valid_def)
+  finally show ?thesis .
+qed
+
+lemma WF1_SchedulingAllocator_Schedule:
+  assumes 1: "\<And>s t. s \<Turnstile> P \<Longrightarrow> s \<Turnstile> Safety \<Longrightarrow> (s,t) \<Turnstile> [Next]_vars \<Longrightarrow> s \<Turnstile> pool \<noteq> #{}"
+  assumes 2: "\<And>s t. s \<Turnstile> P \<Longrightarrow> s \<Turnstile> Safety \<Longrightarrow> (s,t) \<Turnstile> [Next]_vars \<Longrightarrow> s \<Turnstile> finite<pool>"
+  assumes 3: "\<And>s t. s \<Turnstile> P \<Longrightarrow> s \<Turnstile> Safety \<Longrightarrow> (s,t) \<Turnstile> [Next]_vars \<Longrightarrow> t \<Turnstile> P \<or> Q"
+  assumes 4: "\<And>s t. s \<Turnstile> P \<Longrightarrow> s \<Turnstile> Safety \<Longrightarrow> (s,t) \<Turnstile> [Next]_vars \<Longrightarrow> (s,t) \<Turnstile> <Schedule>_vars \<Longrightarrow> t \<Turnstile> Q"
+  shows      "\<turnstile> SchedulingAllocator \<longrightarrow> (P \<leadsto> Q)"
+proof (intro WF1_SchedulingAllocator 3 4)
+  show "\<turnstile> SchedulingAllocator \<longrightarrow> WF(Schedule)_vars"
+    unfolding SchedulingAllocator_def ScheduleFair_def by auto
+
+  fix s t
+  assume "s \<Turnstile> P" "s \<Turnstile> Safety" "(s,t) \<Turnstile> [Next]_vars"
+  with 1 2 have s: "s \<Turnstile> pool \<noteq> #{}" "s \<Turnstile> finite<pool>" by auto
+
+  then obtain poolOrder
+    where po: "distinct poolOrder" "set poolOrder = pool s"
+    using finite_distinct_list by auto
+
+  from basevars [OF bv]
+  obtain t where t:
+    "sched t = sched s @ poolOrder"
+    "alloc t = alloc s"
+    "unsat t = unsat s"
+    "pool  t = {}" by (auto, blast)
+
+  from po s have ne: "vars t \<noteq> vars s" by (auto simp add: vars_def t)
+
+  from s t ne po show "s \<Turnstile> Enabled (<Schedule>_vars)" unfolding enabled_def angle_def Schedule_def by auto
+qed
+
+lemma WF1_SchedulingAllocator_Allocate:
+  assumes 1: "\<And>s t. s \<Turnstile> P \<Longrightarrow> s \<Turnstile> Safety \<Longrightarrow> (s,t) \<Turnstile> [Next]_vars \<Longrightarrow> s \<Turnstile> available \<inter> id<unsat,hd<sched>> \<noteq> #{}"
+  assumes 2: "\<And>s t. s \<Turnstile> P \<Longrightarrow> s \<Turnstile> Safety \<Longrightarrow> (s,t) \<Turnstile> [Next]_vars \<Longrightarrow> s \<Turnstile> sched \<noteq> #[]"
+  assumes 3: "\<And>s t. s \<Turnstile> P \<Longrightarrow> s \<Turnstile> Safety \<Longrightarrow> (s,t) \<Turnstile> [Next]_vars \<Longrightarrow> t \<Turnstile> P \<or> Q"
+  assumes 4: "\<And>s t. s \<Turnstile> P \<Longrightarrow> s \<Turnstile> Safety \<Longrightarrow> (s,t) \<Turnstile> [Next]_vars \<Longrightarrow> (s,t) \<Turnstile> <\<exists>S c. #c = hd<$sched> \<and> Allocate c S>_vars \<Longrightarrow> t \<Turnstile> Q"
+  shows      "\<turnstile> SchedulingAllocator \<longrightarrow> (P \<leadsto> Q)"
+proof (intro WF1_SchedulingAllocator 3 4)
+  show "\<turnstile> SchedulingAllocator \<longrightarrow> WF(\<exists>S c. #c = hd<$sched> \<and> Allocate c S)_vars"
+    unfolding SchedulingAllocator_def AllocateHeadFair_def by auto
+
+  fix s t
+  assume "s \<Turnstile> P" "s \<Turnstile> Safety" "(s,t) \<Turnstile> [Next]_vars"
+  with 1 2 have s: "s \<Turnstile> available \<inter> id<unsat,hd<sched>> \<noteq> #{}" "s \<Turnstile> sched \<noteq> #[]" by auto
+
+  define c where "c \<equiv> hd (sched s)"
+  define S where "S \<equiv> available s \<inter> unsat s c"
+  from s have S_nonempty: "S \<noteq> {}" unfolding S_def c_def by simp
+  from s have c_mem: "c \<in> set (sched s)" unfolding c_def by (cases "sched s", simp_all)
+  have hpc_empty: "higherPriorityClients c s = {}" unfolding higherPriorityClients_def c_def by (cases "sched s", simp_all)
+
+  from basevars [OF bv]
+  obtain t where t:
+    "sched t = (if S = unsat s c then filter (op \<noteq> c) (sched s) else sched s)"
+    "alloc t = modifyAt (alloc s) c (add S)"
+    "unsat t = modifyAt (unsat s) c (del S)"
+    "pool  t = pool s" by (auto, blast)
+
+  have vars_ne: "vars t \<noteq> vars s"
+    unfolding vars_def apply simp unfolding t
+    by (metis Diff_disjoint S_def S_nonempty del_def inf.absorb_iff1 inf_le2 modifyAt_eq_simp)
+
+  show "s \<Turnstile> Enabled (<\<exists>S c. #c = hd<$sched> \<and> Allocate c S>_vars)"
+    unfolding angle_def enabled_def Allocate_def updated_def
+    apply clarsimp
+    apply (fold c_def)
+    apply (intro exI [where x = t] conjI exI [where x = S])
+    using S_nonempty c_mem hpc_empty vars_ne
+      apply (unfold S_def t) by auto
+qed
+
+lemma WF1_SchedulingAllocator_Return:
+  assumes 1: "\<And>s t. s \<Turnstile> P \<Longrightarrow> s \<Turnstile> Safety \<Longrightarrow> (s,t) \<Turnstile> [Next]_vars \<Longrightarrow> s \<Turnstile> id<alloc,#c> \<noteq> #{}"
+  assumes 2: "\<And>s t. s \<Turnstile> P \<Longrightarrow> s \<Turnstile> Safety \<Longrightarrow> (s,t) \<Turnstile> [Next]_vars \<Longrightarrow> s \<Turnstile> id<unsat,#c> = #{}"
+  assumes 3: "\<And>s t. s \<Turnstile> P \<Longrightarrow> s \<Turnstile> Safety \<Longrightarrow> (s,t) \<Turnstile> [Next]_vars \<Longrightarrow> t \<Turnstile> P \<or> Q"
+  assumes 4: "\<And>s t. s \<Turnstile> P \<Longrightarrow> s \<Turnstile> Safety \<Longrightarrow> (s,t) \<Turnstile> [Next]_vars \<Longrightarrow> (s,t) \<Turnstile> <\<exists>S. id<$unsat,#c> = #{} \<and> id<$alloc,#c> = #S \<and> Return c S>_vars \<Longrightarrow> t \<Turnstile> Q"
+  shows      "\<turnstile> SchedulingAllocator \<longrightarrow> (P \<leadsto> Q)"
+proof (intro WF1_SchedulingAllocator 3 4)
+  show "\<turnstile> SchedulingAllocator \<longrightarrow> WF(\<exists>S. id<$unsat,#c> = #{} \<and> id<$alloc,#c> = #S \<and> Return c S)_vars"
+    unfolding SchedulingAllocator_def ReturnFair_def by auto
+
+  fix s t
+  assume "s \<Turnstile> P" "s \<Turnstile> Safety" "(s,t) \<Turnstile> [Next]_vars"
+  with 1 2 have s: "s \<Turnstile> id<alloc,#c> \<noteq> #{}" "s \<Turnstile> id<unsat,#c> = #{}" by auto
+
+  from basevars [OF bv]
+  obtain t where t:
+    "sched t = sched s"
+    "alloc t = modifyAt (alloc s) c (del (alloc s c))"
+    "unsat t = unsat s"
+    "pool  t = pool s" by (auto, blast)
+
+  from s have vars_ne: "vars t \<noteq> vars s"
+    unfolding vars_def apply simp unfolding t apply auto by (metis del_simp modifyAt_eq_simp)
+
+  from s t vars_ne
+  show "s \<Turnstile> Enabled (<\<exists>S. id<$unsat,#c> = #{} \<and> id<$alloc,#c> = #S \<and> Return c S>_vars)"
+    unfolding angle_def enabled_def Return_def updated_def by auto
 qed
 
 end
@@ -766,20 +841,6 @@ next
   then show ?thesis by simp
 qed
 
-lemma WF1_SchedulingAllocator_states:
-  assumes 1: "\<turnstile> SchedulingAllocator \<longrightarrow> WF(A)_v"
-  assumes 2: "\<And>s t. s \<Turnstile> P \<Longrightarrow> s \<Turnstile> Safety \<Longrightarrow> (s,t) \<Turnstile> [Next]_vars \<Longrightarrow> s \<Turnstile> Enabled (<A>_v)"
-  assumes 3: "\<And>s t. s \<Turnstile> P \<Longrightarrow> s \<Turnstile> Safety \<Longrightarrow> (s,t) \<Turnstile> [Next]_vars \<Longrightarrow> t \<Turnstile> P \<or> Q"
-  assumes 4: "\<And>s t. s \<Turnstile> P \<Longrightarrow> s \<Turnstile> Safety \<Longrightarrow> (s,t) \<Turnstile> [Next]_vars \<Longrightarrow> (s,t) \<Turnstile> <A>_v \<Longrightarrow> t \<Turnstile> Q"
-  shows      "\<turnstile> SchedulingAllocator \<longrightarrow> (P \<leadsto> Q)"
-proof -
-  from 1 safety have "\<turnstile> SchedulingAllocator \<longrightarrow> \<box>($Safety \<and> [Next]_vars) \<and> WF(A)_v"
-    by (auto simp add: SchedulingAllocator_def more_temp_simps Valid_def)
-  also from 2 3 4 have "\<turnstile> \<box>($Safety \<and> [Next]_vars) \<and> WF(A)_v \<longrightarrow> (P \<leadsto> Q)"
-    apply (intro WF1 assms) by (auto simp add: Valid_def)
-  finally show ?thesis .
-qed
-
 lemma infinitely_often_unscheduled: "\<turnstile> SchedulingAllocator \<longrightarrow> \<box>\<diamond>(#c \<notin> set<sched>)"
 proof -
   have "\<turnstile> SchedulingAllocator \<longrightarrow> ((#True :: stpred) \<leadsto> (#c \<notin> set<sched>))"
@@ -818,15 +879,13 @@ proof -
       also have "\<turnstile> SchedulingAllocator
             \<longrightarrow> ((\<exists> blocker. #i = inductor c \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> id<alloc,#blocker> \<noteq> #{})
               \<leadsto> #c \<notin> set<sched> \<or> (\<exists>i'. #(i' < i) \<and> #i' = inductor c \<and> #c \<in> set<sched>))"
-      proof (intro imp_exists_leadstoI WF1_SchedulingAllocator_states)
-        fix blocker
-        show "\<turnstile> SchedulingAllocator \<longrightarrow> WF(\<exists>S. id<$unsat, #blocker> = #{} \<and> id<$alloc, #blocker> = #S \<and> Return blocker S)_vars"
-          by (auto simp add: SchedulingAllocator_def ReturnFair_def)
-
-        fix s t
+      proof (intro imp_exists_leadstoI WF1_SchedulingAllocator_Return)
+        fix blocker s t
         assume "s \<Turnstile> #i = inductor c \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> id<alloc, #blocker> \<noteq> #{}"
         hence s: "i = inductor c s" "c \<in> set (sched s)" "unsat s (hd (sched s)) \<inter> alloc s blocker \<noteq> {}"
           by simp_all
+
+        thus "s \<Turnstile> id<alloc, #blocker> \<noteq> #{}" by auto
 
         assume s_Safety: "s \<Turnstile> Safety"
         assume Next: "(s,t) \<Turnstile> [Next]_vars"
@@ -854,16 +913,7 @@ proof -
 
         from s_Safety blocker_unscheduled blocker_unpooled have blocker_satisfied: "unsat s blocker = {}"
           unfolding Safety_def AllocatorInvariant_def by auto
-
-        have simp1: "(ACT <\<exists>S. id<$unsat, #blocker> = #{} \<and> id<$alloc, #blocker> = #S \<and> Return blocker S>_vars)
-          = (ACT (\<exists>S. id<$unsat, #blocker> = #{} \<and> id<$alloc, #blocker> = #S \<and> <Return blocker S>_vars))"
-          unfolding angle_def by auto
-
-        show "s \<Turnstile> Enabled (<\<exists>S. id<$unsat, #blocker> = #{} \<and> id<$alloc, #blocker> = #S \<and> Return blocker S>_vars)"
-          unfolding simp1 angle_Return using s blocker_satisfied
-        proof (intro enabled_exI enabled_guard_conjI enabled_ReturnI)
-          show "alloc s blocker \<subseteq> alloc s blocker" by simp
-        qed auto
+        thus "s \<Turnstile> id<unsat, #blocker> = #{}" by simp
 
         have "(s, t) \<Turnstile> inductor c$ \<le> $inductor c \<or> #c \<notin> set<sched$>"
           by (intro scheduled_progress s_Safety Next s)
@@ -984,26 +1034,18 @@ proof -
         by (intro imp_imp_leadsto, auto)
       also have "\<turnstile> SchedulingAllocator \<longrightarrow> ((\<exists> topPriority. #i = inductor c \<and> #topPriority = hd<sched> \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> available \<noteq> #{}) 
                         \<leadsto> #c \<notin> set<sched> \<or> (\<exists>y. #(y < i) \<and> #y = inductor c \<and> #c \<in> set<sched>))"
-      proof (intro imp_exists_leadstoI WF1_SchedulingAllocator_states)
-        fix topPriority
-        show "\<turnstile> SchedulingAllocator \<longrightarrow>  WF(\<exists>S ct. #ct = hd<$sched> \<and> Allocate ct S)_vars"
-          by (auto simp add: SchedulingAllocator_def AllocateHeadFair_def)
-
+      proof (intro imp_exists_leadstoI WF1_SchedulingAllocator_Allocate)
         fix s t
         assume s_Safety: "Safety s" and Next: "(s,t) \<Turnstile> [Next]_vars"
 
         from s_Safety Next Safety_step[temp_use] have t_Safety: "t \<Turnstile> Safety" by simp
 
+        fix topPriority
         assume "s \<Turnstile> #i = inductor c \<and> #topPriority = hd<sched> \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> available \<noteq> #{}"
         hence s: "i = inductor c s" "topPriority = hd (sched s)" "c \<in> set (sched s)" "unsat s (hd (sched s)) \<inter> available s \<noteq> {}" by auto
         from s have hpc_topPriority: "higherPriorityClients topPriority s = {}" unfolding higherPriorityClients_def by (cases "sched s", auto)
 
-        have simp1: "(ACT (<\<exists>S ct. #ct = hd<$sched> \<and> Allocate ct S>_vars)) = (ACT \<exists>S ct. #ct = hd<$sched> \<and> (<Allocate ct S>_vars))" by (auto simp add: angle_def)
-        show "s \<Turnstile> Enabled (<\<exists>S ct. #ct = hd<$sched> \<and> Allocate ct S>_vars)"
-          unfolding simp1 angle_Allocate proof (intro enabled_exI enabled_AllocateI enabled_guard_conjI)
-          from s show "unsat s (hd (sched s)) \<inter> available s \<noteq> {}" by simp
-          from s show "topPriority \<in> set (sched s)" by (cases "sched s", auto)
-        qed (unfold hpc_topPriority, auto simp add: s)
+        from s show "s \<Turnstile> available \<inter> id<unsat, hd<sched>> \<noteq> #{}" "s \<Turnstile> sched \<noteq> #[]" by auto
 
         have "(s, t) \<Turnstile> inductor c$ \<le> $inductor c \<or> #c \<notin> set<sched$>"
           by (intro scheduled_progress s_Safety Next s)
@@ -1131,22 +1173,12 @@ proof -
       with w show "unsat w c = {}" by (auto simp add: Safety_def AllocatorInvariant_def)
     qed
     also have "\<turnstile> SchedulingAllocator \<longrightarrow> ((\<exists>S. #S \<noteq> #{} \<and> id<unsat,#c> = #{} \<and> id<alloc, #c> = #S) \<leadsto> id<alloc, #c> = #{})"
-    proof (intro wf_imp_ex_leadsto [OF wf_finite_psubset WF1_SchedulingAllocator_states])
-      show "\<turnstile> SchedulingAllocator \<longrightarrow> WF(\<exists>S. id<$unsat, #c> = #{} \<and> id<$alloc, #c> = #S \<and> Return c S)_vars"
-        by (auto simp add: SchedulingAllocator_def ReturnFair_def)
+    proof (intro wf_imp_ex_leadsto [OF wf_finite_psubset WF1_SchedulingAllocator_Return])
       fix S s t
       assume s: "s \<Turnstile> #S \<noteq> #{} \<and> id<unsat, #c> = #{} \<and> id<alloc, #c> = #S"
         and s_Safety: "s \<Turnstile> Safety" and Next: "(s, t) \<Turnstile> [Next]_vars"
 
-      have simp1: "(ACT (<\<exists>S. id<$unsat, #c> = #{} \<and> id<$alloc, #c> = #S \<and> Return c S>_vars))
-        = (ACT (\<exists>S. id<$unsat, #c> = #{} \<and> id<$alloc, #c> = #S \<and> <Return c S>_vars))"
-        by (auto simp add: angle_def)
-
-      show "s \<Turnstile> Enabled (<\<exists>S. id<$unsat, #c> = #{} \<and> id<$alloc, #c> = #S \<and> Return c S>_vars)"
-        unfolding simp1 angle_Return using s
-      proof (intro enabled_exI enabled_guard_conjI enabled_ReturnI)
-        show "alloc s c \<subseteq> alloc s c" by simp
-      qed auto
+      from s show "s \<Turnstile> id<alloc, #c> \<noteq> #{}" "s \<Turnstile> id<unsat, #c> = #{}" by auto
 
       from Next
       show "t \<Turnstile> #S \<noteq> #{} \<and> id<unsat, #c> = #{} \<and> id<alloc, #c> = #S \<or> id<alloc, #c> = #{} \<or> (\<exists>S'. #((S', S) \<in> finite_psubset) \<and> #S' \<noteq> #{} \<and> id<unsat, #c> = #{} \<and> id<alloc, #c> = #S')"
