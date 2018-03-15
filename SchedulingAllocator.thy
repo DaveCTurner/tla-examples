@@ -8,10 +8,13 @@ locale SchedulingAllocator =
   fixes alloc :: "(Client \<Rightarrow> Resource set) stfun"
   fixes pool  :: "Client set stfun"
   fixes sched :: "Client list stfun"
+  fixes vars defines "vars \<equiv> LIFT (unsat,alloc,pool,sched)"
   assumes bv: "basevars (unsat, alloc, pool, sched)"
     (* set of available resources *)
   fixes available :: "Resource set stfun"
   defines "available s \<equiv> - (\<Union>c. alloc s c)"
+  fixes higherPriorityClients :: "Client \<Rightarrow> Client set stfun"
+  defines "higherPriorityClients c s \<equiv> set (takeWhile (op \<noteq> c) (sched s))"
     (* initial state *)
   fixes InitState :: stpred
   defines "InitState \<equiv> PRED ((\<forall>c. id<alloc,#c> = #{} \<and> id<unsat,#c> = #{}) \<and> pool = #{} \<and> sched = #[])"
@@ -22,8 +25,11 @@ locale SchedulingAllocator =
                     \<and> updated unsat c (add S)
                     \<and> pool$ = (insert c)<$pool>
                     \<and> unchanged (alloc, sched)"
-  fixes higherPriorityClients :: "Client \<Rightarrow> Client set stfun"
-  defines "higherPriorityClients c s \<equiv> set (takeWhile (op \<noteq> c) (sched s))"
+    (* schedule waiting pool *)
+  fixes Schedule :: action
+  defines "Schedule \<equiv> ACT ($pool \<noteq> #{} \<and> pool$ = #{}
+      \<and> (\<exists> poolOrder. #(set poolOrder) = $pool \<and> #(distinct poolOrder) \<and> sched$ = $sched @ #poolOrder)
+      \<and> unchanged (unsat, alloc))"
     (* allocator allocates resources *)
   fixes Allocate :: "Client \<Rightarrow> Resource set \<Rightarrow> action"
   defines "Allocate c S \<equiv> ACT (#S \<noteq> #{} \<and> (#S \<subseteq> ($available \<inter> id<$unsat,#c>))
@@ -38,16 +44,9 @@ locale SchedulingAllocator =
   defines "Return c S \<equiv> ACT (#S \<noteq> #{} \<and> #S \<subseteq> id<$alloc,#c>
                     \<and> updated alloc c (del S)
                     \<and> unchanged (unsat, pool, sched))"
-    (* schedule waiting pool *)
-  fixes Schedule :: action
-  defines "Schedule \<equiv> ACT ($pool \<noteq> #{} \<and> pool$ = #{}
-      \<and> (\<exists> poolOrder. #(set poolOrder) = $pool \<and> #(distinct poolOrder) \<and> sched$ = $sched @ #poolOrder)
-      \<and> unchanged (unsat, alloc))"
     (* next-state relation *)
   fixes Next :: action
   defines "Next \<equiv> ACT ((\<exists> c S. Request c S \<or> Allocate c S \<or> Return c S) \<or> Schedule)"
-    (* vars *)
-  fixes vars defines "vars \<equiv> LIFT (unsat,alloc,pool,sched)"
     (* fairness of Return *)
   fixes ReturnFair :: "Client \<Rightarrow> temporal"
   defines "ReturnFair c \<equiv> TEMP WF(\<exists>S. id<$unsat,#c> = #{} \<and> id<$alloc,#c> = #S \<and> Return c S)_vars"
@@ -63,9 +62,6 @@ locale SchedulingAllocator =
     (* mutual exclusion safety property *)
   fixes MutualExclusion :: stpred
   defines "MutualExclusion \<equiv> PRED \<forall> c1 c2. #c1 \<noteq> #c2 \<longrightarrow> id<alloc,#c1> \<inter> id<alloc,#c2> = #{}"
-    (* finiteness safety property *)
-  fixes FiniteRequests :: stpred
-  defines "FiniteRequests \<equiv> PRED \<forall> c. \<exists>S. id<unsat,#c> = #S \<and> #(finite S)"
     (* lower-level invariant of allocator *)
   fixes AllocatorInvariant :: stpred
   defines "AllocatorInvariant \<equiv> PRED
@@ -81,12 +77,10 @@ locale SchedulingAllocator =
     \<and> finite<pool>
     \<and> (\<forall>c. finite<id<unsat,#c>>)
     \<and> (\<forall>c. finite<id<alloc,#c>>)
-    \<and> (\<lambda>s. finite { c. alloc s c \<noteq> {} })
     \<and> distinct<sched>)"
     (* overall safety property *)
   fixes Safety :: stpred
-  defines "Safety \<equiv> PRED (MutualExclusion \<and> FiniteRequests \<and> AllocatorInvariant)"
-    (* allocation liveness property *)
+  defines "Safety \<equiv> PRED (MutualExclusion \<and> AllocatorInvariant)"
 
 context SchedulingAllocator
 begin
@@ -107,9 +101,8 @@ lemma SafetyI:
   assumes "distinct (sched s)"
   assumes "\<And>c. finite (unsat s c)"
   assumes "\<And>c. finite (alloc s c)"
-  assumes "finite { c. alloc s c \<noteq> {} }"
   shows "s \<Turnstile> Safety"
-  unfolding Safety_def AllocatorInvariant_def FiniteRequests_def MutualExclusion_def
+  unfolding Safety_def AllocatorInvariant_def MutualExclusion_def
   using assms by simp
 
 lemma higherPriorityClients_unscheduled:
@@ -439,7 +432,6 @@ proof (intro actionI temp_impI, elim temp_conjE, unfold unl_before unl_after)
   fix s t
   assume Safety: "s \<Turnstile> Safety"
   hence MutualExclusion:    "s \<Turnstile> MutualExclusion"
-    and FiniteRequests:     "s \<Turnstile> FiniteRequests" 
     and AllocatorInvariant: "s \<Turnstile> AllocatorInvariant"
     by (simp_all add: Safety_def)
 
@@ -448,7 +440,7 @@ proof (intro actionI temp_impI, elim temp_conjE, unfold unl_before unl_after)
   proof (cases rule: square_Next_cases)
     case [simp]: unchanged
     from Safety show ?thesis
-      by (simp add: Safety_def MutualExclusion_def FiniteRequests_def AllocatorInvariant_def
+      by (simp add: Safety_def MutualExclusion_def AllocatorInvariant_def
           higherPriorityClients_def)
   next
     case [simp]: (Request c S)
@@ -459,9 +451,9 @@ proof (intro actionI temp_impI, elim temp_conjE, unfold unl_before unl_after)
       show "\<And>c1 c2. c1 \<noteq> c2 \<Longrightarrow> alloc t c1 \<inter> alloc t c2 = {}"
         by (simp add: MutualExclusion_def)
 
-      from Request FiniteRequests
+      from Request AllocatorInvariant
       show "\<And>c'. finite (unsat t c')"
-        by (simp add: FiniteRequests_def modifyAt_def)
+        by (simp add: AllocatorInvariant_def modifyAt_def)
 
       from AllocatorInvariant
       show
@@ -474,7 +466,6 @@ proof (intro actionI temp_impI, elim temp_conjE, unfold unl_before unl_after)
         "finite (pool t)"
         "\<And>c. finite (unsat t c)"
         "\<And>c. finite (alloc t c)"
-        "finite {c. alloc t c \<noteq> {}}"
         "\<And>c. alloc t c \<inter> unsat t c = {}"
         by (auto simp add: AllocatorInvariant_def add_def modifyAt_def)
     next
@@ -498,8 +489,8 @@ proof (intro actionI temp_impI, elim temp_conjE, unfold unl_before unl_after)
       show "\<And>c1 c2. c1 \<noteq> c2 \<Longrightarrow> alloc t c1 \<inter> alloc t c2 = {}"
         by (auto simp add: MutualExclusion_def)
 
-      from FiniteRequests
-      show "\<And>c. finite (unsat t c)" by (simp add: FiniteRequests_def)
+      from AllocatorInvariant
+      show "\<And>c. finite (unsat t c)" by (simp add: AllocatorInvariant_def)
 
       show "\<And>c. c \<in> pool t \<Longrightarrow> unsat t c \<noteq> {}"
         "\<And>c. c \<in> pool t \<Longrightarrow> alloc t c = {}"
@@ -513,7 +504,6 @@ proof (intro actionI temp_impI, elim temp_conjE, unfold unl_before unl_after)
         "\<And>c. finite (unsat t c)"
         "\<And>c. finite (alloc t c)"
         "distinct (sched t)"
-        "finite {c. alloc t c \<noteq> {}}"
         "\<And>c. alloc t c \<inter> unsat t c = {}"
         by (auto simp add: AllocatorInvariant_def)
 
@@ -549,9 +539,9 @@ proof (intro actionI temp_impI, elim temp_conjE, unfold unl_before unl_after)
       with MutualExclusion show "\<And>c1 c2. c1 \<noteq> c2 \<Longrightarrow> alloc t c1 \<inter> alloc t c2 = {}"
         by (auto simp add: MutualExclusion_def modifyAt_def)
 
-      from FiniteRequests
+      from AllocatorInvariant
       show "\<And>c. finite (unsat t c)"
-        by (simp add: FiniteRequests_def modifyAt_def del_def)
+        by (simp add: AllocatorInvariant_def modifyAt_def del_def)
 
       from AllocatorInvariant
       show
@@ -560,17 +550,6 @@ proof (intro actionI temp_impI, elim temp_conjE, unfold unl_before unl_after)
         "pool t \<inter> set (sched t) = {}"
         "finite (pool t)"
         by (auto simp add: AllocatorInvariant_def modifyAt_def)
-
-      from AllocatorInvariant
-      have "finite {c. alloc s c \<noteq> {}}"
-        by (simp add: AllocatorInvariant_def)
-      moreover from Allocate have "S \<subseteq> unsat s c" by simp
-      moreover from AllocatorInvariant have "finite (unsat s c)"
-        by (simp add: AllocatorInvariant_def)
-      moreover have "{c. alloc t c \<noteq> {}} \<subseteq> {c. alloc s c \<noteq> {}} \<union> {c}"
-        by auto
-      ultimately show "finite {c. alloc t c \<noteq> {}}"
-        by (auto simp add: finite_subset)
 
       from AllocatorInvariant
       show "\<And>c. finite (unsat t c)" "\<And>c. finite (alloc t c)"
@@ -696,8 +675,8 @@ proof (intro actionI temp_impI, elim temp_conjE, unfold unl_before unl_after)
         apply (auto simp add: MutualExclusion_def modifyAt_def)
         by blast+
 
-      from FiniteRequests
-      show "\<And>c. finite (unsat t c)" by (simp add: FiniteRequests_def)
+      from AllocatorInvariant
+      show "\<And>c. finite (unsat t c)" by (simp add: AllocatorInvariant_def)
 
       from AllocatorInvariant
       show
@@ -713,12 +692,6 @@ proof (intro actionI temp_impI, elim temp_conjE, unfold unl_before unl_after)
         "\<And>c. alloc t c \<inter> unsat t c = {}"
         by (auto simp add: AllocatorInvariant_def modifyAt_def del_def)
 
-      have "{c. alloc t c \<noteq> {}} \<subseteq> {c. alloc s c \<noteq> {}}"
-        by (auto simp add: modifyAt_def del_def)
-      moreover from AllocatorInvariant have "finite ..."
-        by (auto simp add: AllocatorInvariant_def)
-      ultimately show "finite {c. alloc t c \<noteq> {}}" by (metis finite_subset)
-
       from AllocatorInvariant
       show "\<And>c1 c2. c1 \<in> set (sched t) \<Longrightarrow> c2 \<in> higherPriorityClients c1 t \<Longrightarrow> alloc t c1 \<inter> unsat t c2 = {}"
         by (auto simp add: modifyAt_def AllocatorInvariant_def, blast)
@@ -731,7 +704,7 @@ proof invariant
   fix sigma
   assume sigma: "sigma \<Turnstile> SchedulingAllocator"
   thus "sigma \<Turnstile> Init Safety"
-    by (auto simp add: Init_def Safety_def SchedulingAllocator_def InitState_def MutualExclusion_def FiniteRequests_def AllocatorInvariant_def)
+    by (auto simp add: Init_def Safety_def SchedulingAllocator_def InitState_def MutualExclusion_def AllocatorInvariant_def)
 
   show "sigma \<Turnstile> stable Safety"
   proof (intro Stable [OF _ Safety_step])
