@@ -105,81 +105,6 @@ lemma SafetyI:
   unfolding Safety_def AllocatorInvariant_def MutualExclusion_def
   using assms by simp
 
-lemma higherPriorityClients_unscheduled:
-  assumes "c \<notin> set (sched s)"
-  shows "higherPriorityClients c s = set (sched s)"
-  unfolding higherPriorityClients_def
-  by (metis (mono_tags, lifting) assms takeWhile_eq_all_conv)
-
-lemma higherPriorityClients_irreflexive:
-  shows "c \<notin> higherPriorityClients c s"
-  unfolding higherPriorityClients_def
-  by (metis (full_types) set_takeWhileD)
-
-lemma higherPriorityClients_antisymmetric:
-  assumes "c2 \<in> set (sched s)" "c1 \<noteq> c2" "c1 \<notin> higherPriorityClients c2 s"
-  shows "c2 \<in> higherPriorityClients c1 s"
-proof -
-  define cs where "cs \<equiv> sched s"
-
-  from assms have "c2 \<in> set cs" "c1 \<noteq> c2" "c1 \<notin> set (takeWhile (op \<noteq> c2) cs)"
-    by (simp_all add: cs_def higherPriorityClients_def)
-  hence "c2 \<in> set (takeWhile (op \<noteq> c1) cs)"
-    by (induct cs, auto)
-  thus ?thesis by (simp add: higherPriorityClients_def cs_def)
-qed
-
-lemma higherPriorityClients_transitive:
-  assumes "c1 \<in> higherPriorityClients c2 s"
-  assumes "c2 \<in> higherPriorityClients c3 s"
-  shows   "c1 \<in> higherPriorityClients c3 s"
-proof -
-  define cs where "cs \<equiv> sched s"
-  from assms have "c1 \<in> set (takeWhile (op \<noteq> c2) cs)" "c2 \<in> set (takeWhile (op \<noteq> c3) cs)"
-    by (simp_all add: cs_def higherPriorityClients_def)
-  hence "c1 \<in> set (takeWhile (op \<noteq> c3) cs)"
-    by (induct cs, auto)
-  thus ?thesis by (simp add: higherPriorityClients_def cs_def)
-qed
-
-lemma higherPriorityClients_cases [case_names eq lt gt unscheduled]:
-  assumes eq: "c1 = c2 \<Longrightarrow> P"
-  assumes lt: "c1 \<in> higherPriorityClients c2 s \<Longrightarrow> c2 \<notin> higherPriorityClients c1 s \<Longrightarrow> c1 \<noteq> c2 \<Longrightarrow> c1 \<in> set (sched s) \<Longrightarrow> P"
-  assumes gt: "c2 \<in> higherPriorityClients c1 s \<Longrightarrow> c1 \<notin> higherPriorityClients c2 s \<Longrightarrow> c1 \<noteq> c2 \<Longrightarrow> c2 \<in> set (sched s) \<Longrightarrow> P"
-  assumes unscheduled: "c1 \<notin> set (sched s) \<Longrightarrow> c2 \<notin> set (sched s) \<Longrightarrow> P"
-  shows P
-proof (cases "c1 = c2")
-  case True with eq show P by simp
-next
-  case neq: False
-  show P
-  proof (cases "c1 \<in> higherPriorityClients c2 s")
-    case True 
-    hence "c2 \<notin> higherPriorityClients c1 s"
-      using higherPriorityClients_irreflexive higherPriorityClients_transitive by blast
-    with True neq lt show P apply (auto simp add: higherPriorityClients_def) by (meson set_takeWhileD)
-  next
-    case nlt: False
-    show P
-    proof (cases "c2 \<in> set (sched s)")
-      case True
-      with neq nlt show P by (metis higherPriorityClients_antisymmetric gt)
-    next
-      case nsch2: False
-      show P
-      proof (cases "c1 \<in> set (sched s)")
-        case True
-        define cs where "cs \<equiv> sched s"
-        from True nsch2 have "c1 \<in> higherPriorityClients c2 s"
-          by (unfold higherPriorityClients_def, fold cs_def, induct cs, auto)
-        thus P by (metis nlt)
-      next
-        case False with nsch2 show P by (metis unscheduled)
-      qed
-    qed
-  qed
-qed
-
 lemma RequestE:
   assumes "(s,t) \<Turnstile> Request c S"
   assumes "\<lbrakk> S \<noteq> {}; finite S; unsat s c = {}; alloc s c = {};
@@ -816,9 +741,8 @@ next
     fix c''
     assume "c'' \<in> relevantSchedule c s"
     with scheduled have "c'' \<in> set (sched s)"
-      unfolding relevantSchedule_def
-      using higherPriorityClients_cases higherPriorityClients_def
-      by auto
+      unfolding relevantSchedule_def higherPriorityClients_def
+      by (auto, metis set_takeWhileD)
     with unscheduled have "c'' \<noteq> c'" by auto
     hence "modifyAt (unsat s) c' (add S') c'' = unsat s c''" by simp
   }
