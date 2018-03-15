@@ -105,91 +105,6 @@ lemma SafetyI:
   unfolding Safety_def AllocatorInvariant_def MutualExclusion_def
   using assms by simp
 
-lemma RequestE:
-  assumes "(s,t) \<Turnstile> Request c S"
-  assumes "\<lbrakk> S \<noteq> {}; finite S; unsat s c = {}; alloc s c = {};
-              unsat t = modifyAt (unsat s) c (add S); unsat t c = S; pool t = insert c (pool s);
-              alloc t = alloc s; sched t = sched s; available t = available s;
-              \<And>c'. higherPriorityClients c' t = higherPriorityClients c' s \<rbrakk> \<Longrightarrow> P"
-  shows P
-  using assms unfolding Request_def updated_def
-    by (auto simp add: add_def available_def higherPriorityClients_def)
-
-lemma ScheduleE:
-  assumes "(s,t) \<Turnstile> Schedule"
-  assumes "\<And>poolOrder. \<lbrakk> pool s \<noteq> {}; pool t = {}; set poolOrder = pool s; distinct poolOrder;
-                          sched t = sched s @ poolOrder; unsat t = unsat s; alloc t = alloc s;
-                          available t = available s;
-                          \<And>c'. c' \<in> set (sched s) \<Longrightarrow> higherPriorityClients c' t = higherPriorityClients c' s \<rbrakk> \<Longrightarrow> P"
-  shows P
-proof -
-  from assms(1)
-  obtain poolOrder where po: "set poolOrder = pool s" "distinct poolOrder" "sched t = sched s @ poolOrder"
-    by (auto simp add: Schedule_def)
-
-  from assms(1) po show P
-    apply (intro assms(2) [of poolOrder])
-    by (auto simp add: Schedule_def available_def higherPriorityClients_def)
-qed
-
-lemma AllocateE:
-  assumes "(s,t) \<Turnstile> Allocate c S"
-  assumes "\<lbrakk> S \<noteq> {}; S \<subseteq> available s; S \<subseteq> unsat s c; c \<in> set (sched s);
-            \<And>c' r'. c' \<in> higherPriorityClients c s \<Longrightarrow> r' \<in> unsat s c' \<Longrightarrow> r' \<in> S \<Longrightarrow> False;
-            sched t = (if S = unsat s c then filter (op \<noteq> c) (sched s) else sched s);
-            alloc t = modifyAt (alloc s) c (add S); alloc t c = alloc s c \<union> S;
-            unsat t = modifyAt (unsat s) c (del S); unsat t c = unsat s c - S;
-            pool t = pool s;
-            available t = available s - S;
-            \<And>c'. higherPriorityClients c' t
-                = (if S = unsat s c
-                    then if c' = c
-                      then set (sched t)
-                      else higherPriorityClients c' s - {c}
-                    else higherPriorityClients c' s) \<rbrakk> \<Longrightarrow> P"
-  shows P
-  using assms(1)
-proof (intro assms, simp_all add: Allocate_def updated_def add_def del_def, blast, clarify)
-  assume "S \<subseteq> available s" "alloc t = modifyAt (alloc s) c (add S)"
-  thus "available t = available s - S"
-    unfolding available_def
-    apply auto
-    apply (metis add_simp modifyAt_eq_simp modifyAt_ne_simp)
-    apply (metis add_simp modifyAt_eq_simp)
-    by (metis add_simp modifyAt_eq_simp modifyAt_ne_simp)
-
-next
-  fix c'
-  from assms(1) have "sched t = (if S = unsat s c then filter (op \<noteq> c) (sched s) else sched s)"
-    by (simp add: Allocate_def)
-  thus "(c' = c \<longrightarrow>
-           (S = unsat s c \<longrightarrow> higherPriorityClients c t = {x \<in> set (sched s). c \<noteq> x}) \<and> (S \<noteq> unsat s c \<longrightarrow> higherPriorityClients c t = higherPriorityClients c s)) \<and>
-          (c' \<noteq> c \<longrightarrow>
-           (S = unsat s c \<longrightarrow> higherPriorityClients c' t = higherPriorityClients c' s - {c}) \<and>
-           (S \<noteq> unsat s c \<longrightarrow> higherPriorityClients c' t = higherPriorityClients c' s))"
-  proof (intro conjI impI, simp_all add: higherPriorityClients_def)
-    show "set (takeWhile (op \<noteq> c) (filter (op \<noteq> c) (sched s))) = {x \<in> set (sched s). c \<noteq> x}"
-      by (metis filter_set member_filter set_filter takeWhile_eq_all_conv)
-
-    show "\<And>cs. c' \<noteq> c \<Longrightarrow> set (takeWhile (op \<noteq> c') (filter (op \<noteq> c) cs)) = set (takeWhile (op \<noteq> c') cs) - {c}"
-    proof -
-      fix cs show "c' \<noteq> c \<Longrightarrow> ?thesis cs" by (induct cs, auto)
-    qed
-  qed
-qed
-
-lemma ReturnE:
-  assumes "(s,t) \<Turnstile> Return c S"
-  assumes "\<lbrakk> S \<noteq> {}; S \<subseteq> alloc s c; alloc t = modifyAt (alloc s) c (del S);
-            unsat t = unsat s; pool t = pool s; sched t = sched s;
-            available s \<subseteq> available t;
-            \<And>c'. higherPriorityClients c' t = higherPriorityClients c' s \<rbrakk> \<Longrightarrow> P"
-  shows P
-  using assms(1)
-  apply (intro assms, simp_all add: Return_def updated_def higherPriorityClients_def,
-      auto simp add: available_def Return_def updated_def)
-  by (metis del_simp modifyAt_eq_simp modifyAt_ne_simp)
-
 lemma square_Next_cases [consumes 1, case_names unchanged Request Schedule Allocate Return]:
   assumes Next: "(s,t) \<Turnstile> [Next]_vars"
   assumes unchanged: "\<lbrakk> unsat t = unsat s; alloc t = alloc s; pool t = pool s; sched t = sched s \<rbrakk> \<Longrightarrow> P"
@@ -234,10 +149,59 @@ proof -
       unfolding Next_def apply auto by blast
     thus P
     proof cases
-    next case p: Request with Request show P by (elim exE RequestE, blast)
-    next case p: Allocate with Allocate show P by (elim exE AllocateE, blast)
-    next case p: Schedule with Schedule show P by (elim exE ScheduleE, blast)
-    next case p: Return with Return show P by (elim exE ReturnE, blast)
+      case p: Request with Request show P unfolding Request_def updated_def
+        by (auto simp add: add_def available_def higherPriorityClients_def)
+    next
+      case p: Allocate
+      then obtain c S where p: "(s,t) \<Turnstile> Allocate c S" by auto
+      show P
+      proof (intro Allocate)
+        from p show "S \<noteq> {}" "S \<subseteq> available s" "S \<subseteq> unsat s c" "c \<in> set (sched s)"
+          "\<And>c' r'. c' \<in> higherPriorityClients c s \<Longrightarrow> r' \<in> unsat s c' \<Longrightarrow> r' \<in> S \<Longrightarrow> False"
+          "sched t = (if S = unsat s c then filter (op \<noteq> c) (sched s) else sched s)"
+          "pool t = pool s"
+          "alloc t = modifyAt (alloc s) c (add S)" "alloc t c = alloc s c \<union> S" 
+          "unsat t = modifyAt (unsat s) c (del S)" "unsat t c = unsat s c - S"
+          by (auto simp add: Allocate_def updated_def)
+
+        from `S \<subseteq> available s` `alloc t = modifyAt (alloc s) c (add S)`
+        show "available t = available s - S"
+          unfolding available_def
+          apply auto
+            apply (metis add_simp modifyAt_eq_simp modifyAt_ne_simp)
+           apply (metis add_simp modifyAt_eq_simp)
+          by (metis add_simp modifyAt_eq_simp modifyAt_ne_simp)
+
+        have simp2: "\<And>c cs. set (takeWhile (op \<noteq> c) (filter (op \<noteq> c) cs)) = {x \<in> set cs. c \<noteq> x}"
+          by (metis filter_set member_filter set_filter takeWhile_eq_all_conv)
+        have simp3: "\<And>c c' cs. c' \<noteq> c \<Longrightarrow> set (takeWhile (op \<noteq> c') (filter (op \<noteq> c) cs)) = set (takeWhile (op \<noteq> c') cs) - {c}"
+        proof -
+          fix c c' cs show "c' \<noteq> c \<Longrightarrow> ?thesis c c' cs" by (induct cs, auto)
+        qed
+
+        define cs where "cs \<equiv> sched s"
+
+        show "\<And>c'. higherPriorityClients c' t = (if S = unsat s c then if c' = c then set (sched t) else higherPriorityClients c' s - {c} else higherPriorityClients c' s)"
+          unfolding higherPriorityClients_def `sched t = (if S = unsat s c then filter (op \<noteq> c) (sched s) else sched s)`
+          by (fold cs_def, induct cs, auto simp add: simp2 simp3)
+      qed
+    next 
+      case p: Schedule
+
+      then obtain poolOrder where "set poolOrder = pool s" "distinct poolOrder" "sched t = sched s @ poolOrder"
+        by (auto simp add: Schedule_def)
+
+      with p show P
+        apply (intro Schedule [of poolOrder])
+        by (auto simp add: Schedule_def available_def higherPriorityClients_def)
+    next
+      case p: Return 
+      then obtain c S where "(s,t) \<Turnstile> Return c S" by auto
+      thus P
+        apply (intro Return [where S = S and c = c])
+               apply (simp_all add: Return_def updated_def higherPriorityClients_def,
+            auto simp add: available_def Return_def updated_def)
+        by (metis del_simp modifyAt_eq_simp modifyAt_ne_simp)
     qed
   next
     assume "(s,t) \<Turnstile> unchanged vars" with unchanged show P by (auto simp add: vars_def)
