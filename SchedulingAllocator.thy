@@ -115,21 +115,6 @@ lemma RequestE:
   using assms unfolding Request_def updated_def
     by (auto simp add: add_def available_def higherPriorityClients_def)
 
-lemma enabled_RequestI:
-  assumes "S \<noteq> {}" "finite S" "unsat s c = {}" "alloc s c = {}"
-  shows "s \<Turnstile> Enabled (Request c S)"
-  using assms basevars [OF bv]
-  unfolding enabled_def Request_def updated_def by (auto, blast)
-
-lemma enabled_Request_eq[simp]:
-  shows "(PRED Enabled (Request c S)) = (PRED #S \<noteq> #{} \<and> #(finite S) \<and> id<unsat,#c> = #{} \<and> id<alloc,#c> = #{})"
-  by (intro ext iffI enabled_RequestI, auto simp add: enabled_def Request_def)
-
-lemma angle_Request[simp]:
-  "(ACT <Request c S>_vars) = Request c S"
-  apply (intro ext, auto simp add: angle_def Request_def vars_def updated_def)
-  by (metis add_simp empty_iff modifyAt_eq_simp)
-
 lemma ScheduleE:
   assumes "(s,t) \<Turnstile> Schedule"
   assumes "\<And>poolOrder. \<lbrakk> pool s \<noteq> {}; pool t = {}; set poolOrder = pool s; distinct poolOrder;
@@ -146,21 +131,6 @@ proof -
     apply (intro assms(2) [of poolOrder])
     by (auto simp add: Schedule_def available_def higherPriorityClients_def)
 qed
-
-lemma enabled_ScheduleI:
-  assumes "pool s \<noteq> {}" "finite (pool s)"
-  shows "s \<Turnstile> Enabled Schedule"
-  using assms basevars [OF bv]
-  unfolding enabled_def Schedule_def updated_def apply auto by (metis finite_distinct_list)
-
-lemma enabled_Schedule_eq[simp]:
-  shows "(PRED Enabled Schedule) = (PRED pool \<noteq> #{} \<and> finite<pool>)"
-  apply (intro ext iffI enabled_ScheduleI, auto simp add: enabled_def Schedule_def)
-  by (metis List.finite_set)
-
-lemma angle_Schedule[simp]:
-  "(ACT <Schedule>_vars) = Schedule"
-  by (intro ext, auto simp add: angle_def Schedule_def vars_def updated_def)
 
 lemma AllocateE:
   assumes "(s,t) \<Turnstile> Allocate c S"
@@ -208,24 +178,6 @@ next
   qed
 qed
 
-lemma enabled_AllocateI:
-  assumes "S \<noteq> {}" "S \<subseteq> available s" "S \<subseteq> unsat s c" "c \<in> set (sched s)"
-    "\<And>c' r'. c' \<in> higherPriorityClients c s \<Longrightarrow> r' \<in> unsat s c' \<Longrightarrow> r' \<in> S \<Longrightarrow> False"
-  shows "s \<Turnstile> Enabled (Allocate c S)"
-  using assms basevars [OF bv]
-  unfolding enabled_def Allocate_def updated_def apply auto by meson
-
-lemma enabled_Allocate_eq[simp]:
-  shows "(PRED Enabled (Allocate c S)) = (PRED #S \<noteq> #{} \<and> #S \<subseteq> available \<and> #S \<subseteq> id<unsat,#c>
-    \<and> #c \<in> set<sched> \<and> (\<forall>c' r'. #c' \<in> higherPriorityClients c \<longrightarrow> id<unsat,#c'> \<inter> #S = #{}))"
-  by (intro ext iffI enabled_AllocateI, auto simp add: enabled_def Allocate_def)
-
-lemma angle_Allocate[simp]:
-  "(ACT <Allocate c S>_vars) = Allocate c S"
-  apply (intro ext, auto simp add: angle_def Allocate_def updated_def vars_def)
-   apply (metis del_simp modifyAt_eq_simp)
-  by (metis del_simp modifyAt_eq_simp subsetCE)
-
 lemma ReturnE:
   assumes "(s,t) \<Turnstile> Return c S"
   assumes "\<lbrakk> S \<noteq> {}; S \<subseteq> alloc s c; alloc t = modifyAt (alloc s) c (del S);
@@ -237,68 +189,6 @@ lemma ReturnE:
   apply (intro assms, simp_all add: Return_def updated_def higherPriorityClients_def,
       auto simp add: available_def Return_def updated_def)
   by (metis del_simp modifyAt_eq_simp modifyAt_ne_simp)
-
-lemma enabled_ReturnI:
-  assumes "S \<noteq> {}" "S \<subseteq> alloc s c"
-  shows "s \<Turnstile> Enabled (Return c S)"
-  using assms basevars [OF bv]
-  unfolding enabled_def Return_def updated_def by (auto, blast)
-
-lemma enabled_Return_eq[simp]:
-  shows "(PRED Enabled (Return c S)) = (PRED #S \<noteq> #{} \<and> #S \<subseteq> id<alloc,#c>)"
-  by (intro ext iffI enabled_ReturnI, auto simp add: enabled_def Return_def)
-
-lemma angle_Return[simp]:
-  "(ACT <Return c S>_vars) = Return c S"
-  apply (intro ext, auto simp add: angle_def Return_def vars_def updated_def)
-  by (metis del_simp modifyAt_eq_simp subsetCE)
-
-lemma Next_cases [consumes 1, case_names Request Schedule Allocate Return]:
-  assumes Next: "(s,t) \<Turnstile> Next"
-  assumes Request: "\<And>c S.
-    \<lbrakk> S \<noteq> {}; finite S; unsat s c = {}; alloc s c = {};
-      unsat t = modifyAt (unsat s) c (add S); unsat t c = S; pool t = insert c (pool s);
-      alloc t = alloc s; sched t = sched s; available t = available s;
-      \<And>c'. higherPriorityClients c' t = higherPriorityClients c' s \<rbrakk> \<Longrightarrow> P"
-  assumes Schedule: "\<And>poolOrder.
-    \<lbrakk> pool s \<noteq> {}; pool t = {}; set poolOrder = pool s; distinct poolOrder;
-      sched t = sched s @ poolOrder; unsat t = unsat s; alloc t = alloc s;
-      available t = available s;
-      \<And>c'. c' \<in> set (sched s) \<Longrightarrow> higherPriorityClients c' t = higherPriorityClients c' s \<rbrakk> \<Longrightarrow> P"
-  assumes Allocate: "\<And>c S.
-    \<lbrakk> S \<noteq> {}; S \<subseteq> available s; S \<subseteq> unsat s c; c \<in> set (sched s);
-      \<And>c' r'. c' \<in> higherPriorityClients c s \<Longrightarrow> r' \<in> unsat s c' \<Longrightarrow> r' \<in> S \<Longrightarrow> False;
-      sched t = (if S = unsat s c then filter (op \<noteq> c) (sched s) else sched s);
-      alloc t = modifyAt (alloc s) c (add S); alloc t c = alloc s c \<union> S;
-      unsat t = modifyAt (unsat s) c (del S); unsat t c = unsat s c - S;
-      pool t = pool s; available t = available s - S;
-            \<And>c'. higherPriorityClients c' t
-                = (if S = unsat s c
-                    then if c' = c
-                      then set (sched t)
-                      else higherPriorityClients c' s - {c}
-                    else higherPriorityClients c' s) \<rbrakk> \<Longrightarrow> P"
-  assumes Return: "\<And>c S.
-    \<lbrakk> S \<noteq> {}; S \<subseteq> alloc s c; alloc t = modifyAt (alloc s) c (del S);
-      unsat t = unsat s; pool t = pool s; sched t = sched s;
-      available s \<subseteq> available t;
-      \<And>c'. higherPriorityClients c' t = higherPriorityClients c' s \<rbrakk> \<Longrightarrow> P"
-  shows P
-proof -
-  from Next consider
-    (Request)    "\<exists> c S. (s,t) \<Turnstile> Request c S"
-    | (Schedule)        "(s,t) \<Turnstile> Schedule"
-    | (Allocate) "\<exists> c S. (s,t) \<Turnstile> Allocate c S"
-    | (Return)   "\<exists> c S. (s,t) \<Turnstile> Return c S"
-    unfolding Next_def apply auto by blast
-  thus P
-  proof cases
-  next case p: Request with Request show P by (elim exE RequestE, blast)
-  next case p: Allocate with Allocate show P by (elim exE AllocateE, blast)
-  next case p: Schedule with Schedule show P by (elim exE ScheduleE, blast)
-  next case p: Return with Return show P by (elim exE ReturnE, blast)
-  qed
-qed
 
 lemma square_Next_cases [consumes 1, case_names unchanged Request Schedule Allocate Return]:
   assumes Next: "(s,t) \<Turnstile> [Next]_vars"
@@ -336,17 +226,71 @@ proof -
   thus P
   proof (elim disjE)
     assume "(s,t) \<Turnstile> Next"
+    then consider
+      (Request)    "\<exists> c S. (s,t) \<Turnstile> Request c S"
+      | (Schedule)        "(s,t) \<Turnstile> Schedule"
+      | (Allocate) "\<exists> c S. (s,t) \<Turnstile> Allocate c S"
+      | (Return)   "\<exists> c S. (s,t) \<Turnstile> Return c S"
+      unfolding Next_def apply auto by blast
     thus P
-    proof (cases rule: Next_cases)
-    next case p: Request with Request show P by blast
-    next case p: Allocate with Allocate show P by blast
-    next case p: Schedule with Schedule show P by blast
-    next case p: Return with Return show P by blast
+    proof cases
+    next case p: Request with Request show P by (elim exE RequestE, blast)
+    next case p: Allocate with Allocate show P by (elim exE AllocateE, blast)
+    next case p: Schedule with Schedule show P by (elim exE ScheduleE, blast)
+    next case p: Return with Return show P by (elim exE ReturnE, blast)
     qed
   next
     assume "(s,t) \<Turnstile> unchanged vars" with unchanged show P by (auto simp add: vars_def)
   qed
 qed
+
+lemma enabled_ScheduleI:
+  assumes "pool s \<noteq> {}" "finite (pool s)"
+  shows "s \<Turnstile> Enabled Schedule"
+  using assms basevars [OF bv]
+  unfolding enabled_def Schedule_def updated_def apply auto by (metis finite_distinct_list)
+
+lemma enabled_Schedule_eq[simp]:
+  shows "(PRED Enabled Schedule) = (PRED pool \<noteq> #{} \<and> finite<pool>)"
+  apply (intro ext iffI enabled_ScheduleI, auto simp add: enabled_def Schedule_def)
+  by (metis List.finite_set)
+
+lemma angle_Schedule[simp]:
+  "(ACT <Schedule>_vars) = Schedule"
+  by (intro ext, auto simp add: angle_def Schedule_def vars_def updated_def)
+
+lemma enabled_AllocateI:
+  assumes "S \<noteq> {}" "S \<subseteq> available s" "S \<subseteq> unsat s c" "c \<in> set (sched s)"
+    "\<And>c' r'. c' \<in> higherPriorityClients c s \<Longrightarrow> r' \<in> unsat s c' \<Longrightarrow> r' \<in> S \<Longrightarrow> False"
+  shows "s \<Turnstile> Enabled (Allocate c S)"
+  using assms basevars [OF bv]
+  unfolding enabled_def Allocate_def updated_def apply auto by meson
+
+lemma enabled_Allocate_eq[simp]:
+  shows "(PRED Enabled (Allocate c S)) = (PRED #S \<noteq> #{} \<and> #S \<subseteq> available \<and> #S \<subseteq> id<unsat,#c>
+    \<and> #c \<in> set<sched> \<and> (\<forall>c' r'. #c' \<in> higherPriorityClients c \<longrightarrow> id<unsat,#c'> \<inter> #S = #{}))"
+  by (intro ext iffI enabled_AllocateI, auto simp add: enabled_def Allocate_def)
+
+lemma angle_Allocate[simp]:
+  "(ACT <Allocate c S>_vars) = Allocate c S"
+  apply (intro ext, auto simp add: angle_def Allocate_def updated_def vars_def)
+   apply (metis del_simp modifyAt_eq_simp)
+  by (metis del_simp modifyAt_eq_simp subsetCE)
+
+lemma enabled_ReturnI:
+  assumes "S \<noteq> {}" "S \<subseteq> alloc s c"
+  shows "s \<Turnstile> Enabled (Return c S)"
+  using assms basevars [OF bv]
+  unfolding enabled_def Return_def updated_def by (auto, blast)
+
+lemma enabled_Return_eq[simp]:
+  shows "(PRED Enabled (Return c S)) = (PRED #S \<noteq> #{} \<and> #S \<subseteq> id<alloc,#c>)"
+  by (intro ext iffI enabled_ReturnI, auto simp add: enabled_def Return_def)
+
+lemma angle_Return[simp]:
+  "(ACT <Return c S>_vars) = Return c S"
+  apply (intro ext, auto simp add: angle_def Return_def vars_def updated_def)
+  by (metis del_simp modifyAt_eq_simp subsetCE)
 
 lemma Safety_step: "\<turnstile> $Safety \<and> [Next]_vars \<longrightarrow> Safety$"
 proof (intro actionI temp_impI, elim temp_conjE, unfold unl_before unl_after)
