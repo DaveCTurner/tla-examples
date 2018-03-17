@@ -621,12 +621,12 @@ end
 record Inductor =
   higherSched :: "Client set"
   hd_unsats   :: "Resource set"
-  hd_blockers :: "Client set"
+  hd_blocked  :: bool
 
 definition prec_Inductor_rel :: "(Inductor \<times> Inductor) set"
   where "prec_Inductor_rel \<equiv> inv_image
-              (finite_psubset <*lex*> finite_psubset <*lex*> finite_psubset)
-              (\<lambda>i. (higherSched i, hd_unsats i, hd_blockers i))"
+              (finite_psubset <*lex*> finite_psubset <*lex*> {(False, True)})
+              (\<lambda>i. (higherSched i, hd_unsats i, hd_blocked i))"
 
 definition prec_Inductor :: "Inductor \<Rightarrow> Inductor \<Rightarrow> bool" (infix "\<prec>" 50)
   where "i1 \<prec> i2 \<equiv> (i1,i2) \<in> prec_Inductor_rel"
@@ -639,7 +639,7 @@ lemma inductor_prec_simp: "((i1, i2) \<in> {(i1, i2). i1 \<prec> i2}) = (i1 \<pr
 lemma wf_prec_Inductor: "wf {(i1 :: Inductor, i2 :: Inductor). i1 \<prec> i2}"
 proof -
   have "wf prec_Inductor_rel"
-    unfolding prec_Inductor_rel_def by (intro wf_inv_image wf_lex_prod wf_finite_psubset)
+    unfolding prec_Inductor_rel_def by (intro wf_inv_image wf_lex_prod wf_finite_psubset, simp)
   thus ?thesis by (simp add: prec_Inductor_def)
 qed
 
@@ -648,13 +648,13 @@ begin
 
 definition inductor :: "Client \<Rightarrow> Inductor stfun"
   where "inductor c s \<equiv> \<lparr> higherSched = higherPriorityClients c s
-                         , hd_unsats   = unsat s (hd (sched s))
-                         , hd_blockers = { c'. alloc s c' \<inter> unsat s (hd (sched s)) \<noteq> {} }
+                         , hd_unsats  = unsat s (hd (sched s))
+                         , hd_blocked = unsat s (hd (sched s)) \<inter> available s = {}
                          \<rparr>"
 
 lemma higherSched_inductor[simp]: "higherSched (inductor c s) = higherPriorityClients c s"
   and hd_unsats_inductor[simp]:   "hd_unsats   (inductor c s) = unsat s (hd (sched s))"
-  and hd_blockers_inductor[simp]: "hd_blockers (inductor c s) = { c'. alloc s c' \<inter> unsat s (hd (sched s)) \<noteq> {} }"
+  and hd_blockers_inductor[simp]: "hd_blocked  (inductor c s) = (unsat s (hd (sched s)) \<inter> available s = {})"
   by (simp_all add: inductor_def)
 
 lemma inductor_prec_eq:
@@ -665,7 +665,8 @@ lemma inductor_prec_eq:
           \<and> unsat t (hd (sched t)) \<subset> unsat s (hd (sched s)))
        \<or> (higherPriorityClients c t = higherPriorityClients c s
           \<and> unsat t (hd (sched t)) = unsat s (hd (sched s))
-          \<and> { c'. alloc t c' \<inter> unsat t (hd (sched t)) \<noteq> {} } \<subset> { c'. alloc s c' \<inter> unsat s (hd (sched s)) \<noteq> {} }))"
+          \<and> (unsat s (hd (sched s)) \<inter> available s = {})
+          \<and> (unsat t (hd (sched t)) \<inter> available t \<noteq> {})))"
   (is "?LHS = ?RHS")
 proof (intro iffI)
   assume "?LHS" thus "?RHS" by (auto simp add: inductor_def prec_Inductor_def prec_Inductor_rel_def)
@@ -751,30 +752,23 @@ proof -
           have unsat_hd_eq[simp]: "unsat t (hd (sched s)) = unsat s (hd (sched s))"
             unfolding Allocate using c'_ne_hd modifyAt_ne_simp by metis
 
-          have blocker_eq[simp]: "{c'. alloc t c' \<inter> unsat s (hd (sched s)) \<noteq> {}} = {c'. alloc s c' \<inter> unsat s (hd (sched s)) \<noteq> {}}"
+          have blocked_eq[simp]:
+            "(unsat s (hd (sched s)) \<inter> available s = {}) = (unsat s (hd (sched s)) \<inter> available t = {})"
             (is "?LHS = ?RHS")
-          proof (intro equalityI subsetI)
-            fix c'' assume "c'' \<in> ?RHS" thus "c'' \<in> ?LHS" unfolding Allocate modifyAt_def by auto
+          proof (intro iffI Int_emptyI)
+            fix r assume "?LHS" "r \<in> unsat s (hd (sched s))" "r \<in> available t"
+            with Allocate show False by auto
           next
-            fix c''
-            assume c'': "c'' \<in> ?LHS"
-            show "c'' \<in> ?RHS"
-            proof (cases "c'' = c'")
-              case False with c'' show ?thesis unfolding Allocate by auto
+            fix r assume r: "?RHS" "r \<in> unsat s (hd (sched s))" "r \<in> available s"
+            show False
+            proof (cases "r \<in> S'")
+              case False with r Allocate show False by auto
             next
               case True
-
-              from c'_ne_hd scheduled
-              have hd_hpc: "hd (sched s) \<in> higherPriorityClients c' s"
-                unfolding higherPriorityClients_def by (cases "sched s", auto)
-
-              from hd_hpc Safety_s Allocate have "alloc s c' \<inter> unsat s (hd (sched s)) = {}" 
-                unfolding Safety_def AllocatorInvariant_def by auto
-
-              moreover from hd_hpc Allocate have "S' \<inter> unsat s (hd (sched s)) = {}" by auto
-
-              ultimately show ?thesis
-                using True c'' unfolding Allocate by auto
+              from c'_ne_hd Allocate have "hd (sched s) \<in> higherPriorityClients c' s"
+                unfolding higherPriorityClients_def
+                by (cases "sched s", auto)
+              with True Allocate r show False by auto
             qed
           qed
 
@@ -789,64 +783,53 @@ proof -
       have hpc_eq: "sched t = sched s" "\<And>c''. higherPriorityClients c'' t = higherPriorityClients c'' s"
         by (simp_all add: Allocate)
 
-      have blockers_eq: "{ c'. alloc t c' \<inter> unsat t (hd (sched t)) \<noteq> {} } = { c'. alloc s c' \<inter> unsat s (hd (sched s)) \<noteq> {} }"
-        (is "?LHS = ?RHS")
-      proof (intro equalityI subsetI)
-        fix c'' assume "c'' \<in> ?LHS"
-        then obtain r where r: "r \<in> alloc t c''" "r \<in> unsat t (hd (sched t))" by auto
-
-        from r have r_unsat: "r \<in> unsat s (hd (sched s))" unfolding hpc_eq Allocate by (cases "hd (sched s) = c'", auto)
-
-        moreover have "r \<in> alloc s c''"
-        proof (cases "r \<in> S'")
-          case False with r show ?thesis unfolding Allocate by (cases "c' = c''", auto)
-        next
-          case True
-          have False
-          proof (intro Allocate)
-            from True show "r \<in> S'".
-            from r_unsat show "r \<in> unsat s (hd (sched s))".
-            from True r not_fully_satisfied have c'_ne_hd: "c' \<noteq> hd (sched s)" unfolding Allocate by auto
-            thus "hd (sched s) \<in> higherPriorityClients c' s"
-              using scheduled unfolding higherPriorityClients_def by (cases "sched s", auto)
-          qed
-          thus ?thesis by simp
-        qed
-
-        ultimately show "c'' \<in> ?RHS" by auto
-      next
-        fix c'' assume "c'' \<in> ?RHS"
-        then obtain r where r: "r \<in> alloc s c''" "r \<in> unsat s (hd (sched s))" by auto
-        from r Allocate have "r \<notin> S'" unfolding available_def by auto
-        with r have "r \<in> alloc t c'' \<inter> unsat t (hd (sched t))"
-          unfolding hpc_eq Allocate by (auto simp add: modifyAt_def)
-        thus "c'' \<in> ?LHS" by auto
-      qed
-
       have unsats_subset: "unsat t (hd (sched s)) \<subseteq> unsat s (hd (sched s))"
         unfolding Allocate modifyAt_def by auto
       thus ?thesis
       proof (unfold subset_iff_psubset_eq, elim disjE)
         assume "unsat t (hd (sched s)) \<subset> unsat s (hd (sched s))"
-        with hpc_eq blockers_eq have "inductor c t \<prec> inductor c s" by (intro inductor_precI, auto)
+        with hpc_eq have "inductor c t \<prec> inductor c s" by (intro inductor_precI, auto)
         thus ?thesis by (simp add: prec_eq_Inductor_def)
       next
-        assume "unsat t (hd (sched s)) = unsat s (hd (sched s))"
-        with hpc_eq blockers_eq have "inductor c t = inductor c s" by (simp add: inductor_def)
+        assume unsat_hd_eq[simp]: "unsat t (hd (sched s)) = unsat s (hd (sched s))"
+        with Allocate have c'_ne_hd: "c' \<noteq> hd (sched s)" by auto
+
+        have blocked_eq[simp]:
+          "(unsat s (hd (sched s)) \<inter> available s = {}) = (unsat s (hd (sched s)) \<inter> available t = {})"
+          (is "?LHS = ?RHS")
+        proof (intro iffI Int_emptyI)
+          fix r assume "?LHS" "r \<in> unsat s (hd (sched s))" "r \<in> available t"
+          with Allocate show False by auto
+        next
+          fix r assume r: "?RHS" "r \<in> unsat s (hd (sched s))" "r \<in> available s"
+          show False
+          proof (cases "r \<in> S'")
+            case False with r Allocate show False by auto
+          next
+            case True
+            from c'_ne_hd Allocate have "hd (sched s) \<in> higherPriorityClients c' s"
+              unfolding higherPriorityClients_def
+              by (cases "sched s", auto)
+            with True Allocate r show False by auto
+          qed
+        qed
+
+        with hpc_eq have "inductor c t = inductor c s" by (simp add: inductor_def)
         thus ?thesis by (simp add: prec_eq_Inductor_def)
       qed
     qed
   next
     case (Return c' S')
 
-    have blockers_subset: "{ c'. alloc t c' \<inter> unsat t (hd (sched t)) \<noteq> {} } \<subseteq> { c'. alloc s c' \<inter> unsat s (hd (sched s)) \<noteq> {} }"
-      (is "?LHS \<subseteq> ?RHS") by (auto simp add: Return modifyAt_def)
-    thus ?thesis
-    proof (unfold subset_iff_psubset_eq, elim disjE)
-      assume "?LHS = ?RHS" with Return have "inductor c t = inductor c s" by (simp add: inductor_def)
+    show ?thesis
+    proof (cases "(unsat s (hd (sched s)) \<inter> available t = {}) = (unsat s (hd (sched s)) \<inter> available s = {})")
+      case True with Return have "inductor c t = inductor c s" by (simp add: inductor_def)
       thus ?thesis by (simp add: prec_eq_Inductor_def)
     next
-      assume "?LHS \<subset> ?RHS" with Return have "inductor c t \<prec> inductor c s" by (intro inductor_precI, auto)
+      case False
+      with Return have "unsat s (hd (sched s)) \<inter> available t \<noteq> {}" "unsat s (hd (sched s)) \<inter> available s = {}"
+        by (auto simp add: Return modifyAt_def, blast+)
+      with Return have "inductor c t \<prec> inductor c s" by (intro inductor_precI, auto)
       thus ?thesis by (simp add: prec_eq_Inductor_def)
     qed
   qed
@@ -879,7 +862,9 @@ proof -
         by (intro imp_INV_leadsto [OF safety imp_imp_leadsto], auto)
       also have "\<turnstile> SchedulingAllocator
             \<longrightarrow> (Safety \<and> #i = inductor c \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> available = #{}
-              \<leadsto> (\<exists> blocker. #i = inductor c \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> id<alloc,#blocker> \<noteq> #{}))"
+              \<leadsto> (\<exists> blocker. #i = inductor c \<and> #c \<in> set<sched>
+                                   \<and> id<unsat, hd<sched>> \<inter> available = #{}
+                                   \<and> id<unsat, hd<sched>> \<inter> id<alloc,#blocker> \<noteq> #{}))"
       proof (intro imp_imp_leadsto intI temp_impI, clarsimp)
         fix s
         assume s_Safety: "s \<Turnstile> Safety" and scheduled: "c \<in> set (sched s)" and blocked: "unsat s (hd (sched s)) \<inter> available s = {}"
@@ -888,12 +873,16 @@ proof -
         with blocked show "\<exists>blocker. unsat s (hd (sched s)) \<inter> alloc s blocker \<noteq> {}" by (auto simp add: available_def)
       qed
       also have "\<turnstile> SchedulingAllocator
-            \<longrightarrow> ((\<exists> blocker. #i = inductor c \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> id<alloc,#blocker> \<noteq> #{})
+            \<longrightarrow> ((\<exists> blocker. #i = inductor c \<and> #c \<in> set<sched>
+                                   \<and> id<unsat, hd<sched>> \<inter> available = #{}
+                                   \<and> id<unsat, hd<sched>> \<inter> id<alloc,#blocker> \<noteq> #{})
               \<leadsto> #c \<notin> set<sched> \<or> (\<exists>i'. #(i' \<prec> i) \<and> #i' = inductor c \<and> #c \<in> set<sched>))"
       proof (intro imp_exists_leadstoI WF1_SchedulingAllocator_Return)
         fix blocker s t
-        assume "s \<Turnstile> #i = inductor c \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> id<alloc, #blocker> \<noteq> #{}"
-        hence s: "i = inductor c s" "c \<in> set (sched s)" "unsat s (hd (sched s)) \<inter> alloc s blocker \<noteq> {}"
+        assume "s \<Turnstile> #i = inductor c \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> available = #{} \<and> id<unsat, hd<sched>> \<inter> id<alloc, #blocker> \<noteq> #{}"
+        hence s: "i = inductor c s" "c \<in> set (sched s)"
+          "unsat s (hd (sched s)) \<inter> alloc s blocker \<noteq> {}"
+          "unsat s (hd (sched s)) \<inter> available s = {}"
           by simp_all
 
         thus "s \<Turnstile> id<alloc, #blocker> \<noteq> #{}" by auto
@@ -930,12 +919,14 @@ proof -
           (alloc) "c \<notin> set (sched t)"
           | (progress) "c \<in> set (sched t)" "inductor c t \<prec> inductor c s"
           | (same) "c \<in> set (sched t)" "inductor c t = inductor c s"
-            "{c'. alloc t c' \<inter> unsat t (hd (sched t)) \<noteq> {}} = {c'. alloc s c' \<inter> unsat s (hd (sched s)) \<noteq> {}}"
+            "(unsat t (hd (sched t)) \<inter> available t = {}) = (unsat s (hd (sched s)) \<inter> available s = {})"
           by (cases "c \<in> set (sched t)", auto simp add: prec_eq_Inductor_def inductor_def)
         note progress_cases = this
 
         from progress_cases
-        show "t \<Turnstile> #i = inductor c \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> id<alloc, #blocker> \<noteq> #{} \<or> #c \<notin> set<sched> \<or> (\<exists>i'. #(i' \<prec> i) \<and> #i' = inductor c \<and> #c \<in> set<sched>)"
+        show "t \<Turnstile> #i = inductor c \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> available = #{}
+                               \<and> id<unsat, hd<sched>> \<inter> id<alloc, #blocker> \<noteq> #{} \<or> #c \<notin> set<sched>
+                    \<or> (\<exists>i'. #(i' \<prec> i) \<and> #i' = inductor c \<and> #c \<in> set<sched>)"
         proof cases
           case alloc thus ?thesis by simp
         next
@@ -973,15 +964,32 @@ proof -
             qed
           next
             case (Return c' S')
-            with same s show ?thesis by auto
+            show ?thesis
+            proof (cases "c' = blocker")
+              case False with Return s show ?thesis by auto
+            next
+              case c'_blocker: True
+              from s obtain r where r: "r \<in> unsat s (hd (sched s))" "r \<in> alloc s blocker" by auto
+              show ?thesis
+              proof (cases "r \<in> S'")
+                case False with r Return c'_blocker show ?thesis by auto
+              next
+                case True with Return s_Safety r c'_blocker have "r \<in> available t"
+                  unfolding available_def Safety_def MutualExclusion_def apply auto
+                  by (metis Diff_disjoint del_def disjoint_iff_not_equal modifyAt_eq_simp modifyAt_ne_simp)
+                with same s r Return show ?thesis by auto
+              qed
+            qed
           qed
 
           with same s show ?thesis by auto
         qed
 
         assume "(s, t) \<Turnstile> <\<exists>S. id<$unsat, #blocker> = #{} \<and> id<$alloc, #blocker> = #S \<and> Return blocker S>_vars"
-        hence  alloc_t_blocker_eq: "alloc t blocker = {}"
+        hence  alloc_t_blocker_eq: "alloc t blocker = {}" and Return_simps: "sched t = sched s" "unsat t = unsat s"
+          and Return: "(s,t) \<Turnstile> \<exists> S. Return blocker S"
           by (auto simp add: Return_def angle_def vars_def updated_def)
+        from Return obtain S' where Return: "(s,t) \<Turnstile> Return blocker S'" by auto
 
         from progress_cases
         show "t \<Turnstile> #c \<notin> set<sched> \<or> (\<exists>i'. #(i' \<prec> i) \<and> #i' = inductor c \<and> #c \<in> set<sched>)"
@@ -990,7 +998,13 @@ proof -
         next
           case progress thus ?thesis by (auto simp add: s)
         next
-          case same with s alloc_t_blocker_eq show ?thesis by auto
+          case same
+          from s obtain r where r: "r \<in> unsat s (hd (sched s))" "r \<in> alloc s blocker" by auto
+          from r s_Safety alloc_t_blocker_eq Return have "r \<in> unsat s (hd (sched s)) \<inter> available t"
+            unfolding available_def Safety_def MutualExclusion_def Return_def updated_def
+            apply auto
+            by (metis alloc_t_blocker_eq disjoint_iff_not_equal inf.idem modifyAt_ne_simp)
+          with s same show ?thesis unfolding Return_simps by auto
         qed
       qed
       finally show "\<turnstile> SchedulingAllocator \<longrightarrow> (#i = inductor c \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> available = #{} \<leadsto> #c \<notin> set<sched> \<or> (\<exists>i'. #(i' \<prec> i) \<and> #i' = inductor c \<and> #c \<in> set<sched>)) ".
@@ -1017,7 +1031,7 @@ proof -
           | (progress) "c \<in> set (sched t)" "inductor c t \<prec> inductor c s"
           | (same) "c \<in> set (sched t)" "inductor c t = inductor c s"
             "higherPriorityClients c t = higherPriorityClients c s"
-            "{c'. alloc t c' \<inter> unsat t (hd (sched t)) \<noteq> {}} = {c'. alloc s c' \<inter> unsat s (hd (sched s)) \<noteq> {}}"
+            "(unsat t (hd (sched t)) \<inter> available t = {}) = (unsat s (hd (sched s)) \<inter> available s = {})"
             "unsat t (hd (sched t)) = unsat s (hd (sched s))"
           by (cases "c \<in> set (sched t)", auto simp add: prec_eq_Inductor_def inductor_def)
         note progress_cases = this
