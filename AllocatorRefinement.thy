@@ -83,40 +83,7 @@ proof (intro temp_imp_conjI imp_forall)
 
   have "\<turnstile> SchedulingAllocator \<longrightarrow> (Enabled (<\<exists>S. Allocate_Simple c S>_(unsat, alloc)) \<leadsto> id<unsat,#c> \<noteq> #{})"
     by (intro imp_imp_leadsto, auto simp add: enabled_def angle_def Simple.Allocate_def)
-  also have unsatisfied_leadsto_scheduled:
-    "\<turnstile> SchedulingAllocator \<longrightarrow> (id<unsat, #c> \<noteq> #{} \<leadsto> #c \<in> set<sched>)"
-  proof (rule imp_leadsto_diamond [OF imp_imp_leadsto imp_imp_leadsto])
-    show "\<turnstile> id<unsat, #c> \<noteq> #{} \<longrightarrow> #c \<in> set<sched> \<or> (id<unsat, #c> \<noteq> #{} \<and> #c \<notin> set<sched>)"
-      by auto
-    show "\<turnstile> #c \<in> set<sched> \<longrightarrow> #c \<in> set<sched>" by simp
-
-    show "\<turnstile> SchedulingAllocator \<longrightarrow> (id<unsat, #c> \<noteq> #{} \<and> #c \<notin> set<sched> \<leadsto> #c \<in> set<sched>)"
-    proof (intro WF1_SchedulingAllocator_Schedule)
-      fix s t
-      assume Safety: "s \<Turnstile> Safety" and Next: "(s,t) \<Turnstile> [Next]_vars"
-      assume "s \<Turnstile> id<unsat, #c> \<noteq> #{} \<and> #c \<notin> set<sched>"
-      hence s: "unsat s c \<noteq> {}" "c \<notin> set (sched s)" by auto
-
-      from s Safety show "s \<Turnstile> pool \<noteq> #{}" "s \<Turnstile> finite<pool>" by (auto simp add: Safety_def AllocatorInvariant_def)
-
-      from s Safety show "(s, t) \<Turnstile> <Schedule>_vars \<Longrightarrow> t \<Turnstile> #c \<in> set<sched>"
-        by (simp, auto simp add: Schedule_def Safety_def AllocatorInvariant_def angle_def)
-
-      from Next have "unsat t c \<noteq> {}"
-      proof (cases rule: square_Next_cases)
-        case unchanged with s show ?thesis by simp
-      next
-        case (Request c' S') with s have "c' \<noteq> c" by auto with Request s show ?thesis by auto
-      next
-        case (Schedule poolOrder) with s show ?thesis by simp
-      next
-        case (Allocate c' S') with s have "c' \<noteq> c" by auto with Allocate s show ?thesis by auto
-      next
-        case (Return c' S') with s show ?thesis by simp
-      qed
-      thus "t \<Turnstile> id<unsat, #c> \<noteq> #{} \<and> #c \<notin> set<sched> \<or> #c \<in> set<sched>" by auto
-    qed
-  qed
+  also note unsatisfied_leadsto_scheduled
   also have "\<turnstile> SchedulingAllocator \<longrightarrow> (#c \<in> set<sched> \<leadsto> ($(#c \<in> set<sched>) \<and> \<not>(#c \<in> set<sched>)$))"
   proof (intro imp_unstable_leadsto_change)
     have "\<turnstile> SchedulingAllocator \<longrightarrow> (#c \<in> set<sched> \<leadsto> (#True :: stpred))" by (intro imp_imp_leadsto, simp)
