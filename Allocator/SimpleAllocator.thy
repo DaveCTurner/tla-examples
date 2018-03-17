@@ -1,5 +1,5 @@
 theory SimpleAllocator
-  imports AllocatorPrelims
+  imports Prelims
 begin
 
 locale SimpleAllocator =

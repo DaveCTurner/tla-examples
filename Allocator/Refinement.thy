@@ -1,4 +1,4 @@
-theory AllocatorRefinement
+theory Refinement
   imports SimpleAllocator SchedulingAllocator
 begin
 

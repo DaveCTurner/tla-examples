@@ -1,5 +1,5 @@
 theory SchedulingAllocator
-  imports AllocatorPrelims
+  imports Prelims
 begin
 
 locale SchedulingAllocator =

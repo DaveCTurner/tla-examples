@@ -1,5 +1,5 @@
-theory AllocatorPrelims
-  imports "TLA-Utils"
+theory Prelims
+  imports "../TLA-Utils"
 begin
 
 typedecl Client
