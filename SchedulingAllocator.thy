@@ -636,7 +636,7 @@ definition prec_eq_Inductor :: "Inductor \<Rightarrow> Inductor \<Rightarrow> bo
 
 lemma inductor_prec_simp: "((i1, i2) \<in> {(i1, i2). i1 \<prec> i2}) = (i1 \<prec> i2)" by auto
 
-lemma wf_prec_Inductor: "wf {(i1 :: Inductor, i2 :: Inductor). i1 \<prec> i2}"
+lemma wf_prec_Inductor: "wf {(i1 :: Inductor, i2). i1 \<prec> i2}"
 proof -
   have "wf prec_Inductor_rel"
     unfolding prec_Inductor_rel_def by (intro wf_inv_image wf_lex_prod wf_finite_psubset, simp)
@@ -890,20 +890,14 @@ proof -
         assume s_Safety: "s \<Turnstile> Safety"
         assume Next: "(s,t) \<Turnstile> [Next]_vars"
 
-        have blocker_unscheduled: "blocker \<notin> set (sched s)"
-        proof (intro notI)
-          assume blocker_scheduled: "blocker \<in> set (sched s)"
-          show False
-          proof (cases "blocker = hd (sched s)")
-            case True
-            with s s_Safety show False unfolding Safety_def AllocatorInvariant_def by (simp, blast)
-          next
-            case False
-            with s have "hd (sched s) \<in> higherPriorityClients blocker s"
-              unfolding higherPriorityClients_def by (cases "sched s", auto)
-            with s blocker_scheduled s_Safety show False unfolding Safety_def AllocatorInvariant_def by (simp, blast)
-          qed
-        qed
+        from s s_Safety have blocker_ne_hd: "blocker \<noteq> hd (sched s)"
+          unfolding Safety_def AllocatorInvariant_def by (simp, blast)
+
+        with s have hd_hpc_blocker: "hd (sched s) \<in> higherPriorityClients blocker s"
+          unfolding higherPriorityClients_def by (cases "sched s", auto)
+
+        with s s_Safety have blocker_unscheduled: "blocker \<notin> set (sched s)"
+          unfolding Safety_def AllocatorInvariant_def by (simp, blast)
 
         from s_Safety s
         have blocker_unpooled: "blocker \<notin> pool s"
@@ -1149,63 +1143,53 @@ proof -
     by (simp add: leadsto_def)
 
   also have "\<turnstile> SchedulingAllocator \<longrightarrow> (#c \<notin> set<sched> \<leadsto> id<alloc,#c> = #{})"
-  proof (rule imp_leadsto_triangle_excl [OF imp_leadsto_reflexive])
-    have "\<turnstile> SchedulingAllocator \<longrightarrow> (#c \<notin> set<sched> \<and> id<alloc, #c> \<noteq> #{} \<leadsto> (\<exists>S. #S \<noteq> #{} \<and> id<unsat,#c> = #{} \<and> id<alloc, #c> = #S))"
-    proof (rule imp_INV_leadsto [OF safety imp_imp_leadsto], intro intI, clarsimp)
-      fix w
-      assume w: "c \<notin> set (sched w)" "alloc w c \<noteq> {}" "Safety w"
-      hence "c \<notin> pool w" by (auto simp add: Safety_def AllocatorInvariant_def)
-      with w show "unsat w c = {}" by (auto simp add: Safety_def AllocatorInvariant_def)
-    qed
-    also have "\<turnstile> SchedulingAllocator \<longrightarrow> ((\<exists>S. #S \<noteq> #{} \<and> id<unsat,#c> = #{} \<and> id<alloc, #c> = #S) \<leadsto> id<alloc, #c> = #{})"
-    proof (intro wf_imp_ex_leadsto [OF wf_finite_psubset WF1_SchedulingAllocator_Return])
-      fix S s t
-      assume s: "s \<Turnstile> #S \<noteq> #{} \<and> id<unsat, #c> = #{} \<and> id<alloc, #c> = #S"
-        and s_Safety: "s \<Turnstile> Safety" and Next: "(s, t) \<Turnstile> [Next]_vars"
+  proof (rule imp_leadsto_triangle_excl [OF imp_leadsto_reflexive WF1_SchedulingAllocator_Return])
+    fix s t
+    assume s: "s \<Turnstile> #c \<notin> set<sched> \<and> id<alloc, #c> \<noteq> #{}"
+      and s_Safety: "s \<Turnstile> Safety" and Next: "(s, t) \<Turnstile> [Next]_vars"
 
-      from s show "s \<Turnstile> id<alloc, #c> \<noteq> #{}" "s \<Turnstile> id<unsat, #c> = #{}" by auto
+    from s show "s \<Turnstile> id<alloc, #c> \<noteq> #{}" by simp
 
-      from Next
-      show "t \<Turnstile> #S \<noteq> #{} \<and> id<unsat, #c> = #{} \<and> id<alloc, #c> = #S \<or> id<alloc, #c> = #{} \<or> (\<exists>S'. #((S', S) \<in> finite_psubset) \<and> #S' \<noteq> #{} \<and> id<unsat, #c> = #{} \<and> id<alloc, #c> = #S')"
-      proof (cases rule: square_Next_cases)
-        case unchanged with s show ?thesis by simp
+    from s s_Safety show "s \<Turnstile> id<unsat, #c> = #{}"
+      unfolding Safety_def AllocatorInvariant_def apply auto by blast
+
+    from Next
+    show "t \<Turnstile> #c \<notin> set<sched> \<and> id<alloc, #c> \<noteq> #{} \<or> id<alloc, #c> = #{}"
+    proof (cases rule: square_Next_cases)
+      case unchanged with s show ?thesis by simp
+    next
+      case (Request c' S') with s have "c' \<noteq> c" by auto
+      with Request s show ?thesis by auto
+    next
+      case (Schedule poolOrder)
+      with s s_Safety show ?thesis unfolding Safety_def AllocatorInvariant_def by auto
+    next
+      case (Allocate c' S') with s have "c' \<noteq> c" by auto
+      with Allocate s show ?thesis by auto
+    next
+      case (Return c' S')
+      show ?thesis
+      proof (cases "c' = c")
+        case False with Return s show ?thesis by auto
       next
-        case (Request c' S') with s have "c' \<noteq> c" by auto
-        with Request s show ?thesis by auto
-      next
-        case (Schedule poolOrder) with s show ?thesis by auto
-      next
-        case (Allocate c' S') with s have "c' \<noteq> c" by auto
-        with Allocate s show ?thesis by auto
-      next
-        case (Return c' S')
+        case c_eq[simp]: True
         show ?thesis
-        proof (cases "c' = c")
-          case False with Return s show ?thesis by auto
+        proof (cases "S' = alloc s c")
+          case True with Return show ?thesis by auto
         next
-          case c_eq[simp]: True
-          show ?thesis
-          proof (cases "S' = alloc s c")
-            case True with Return show ?thesis by auto
-          next
-            case False with Return s s_Safety
-            have "t \<Turnstile> (\<exists>S'. #((S', S) \<in> finite_psubset) \<and> #S' \<noteq> #{} \<and> id<unsat, #c> = #{} \<and> id<alloc, #c> = #S')"
-              apply (auto simp add: Return del_def Safety_def AllocatorInvariant_def)
-              using Return(1) by auto
-            thus ?thesis by simp
-          qed
+          case False with Return s s_Safety
+          have "t \<Turnstile> #c \<notin> set<sched> \<and> id<alloc, #c> \<noteq> #{}" by auto
+          thus ?thesis by simp
         qed
       qed
-
-      assume "(s, t) \<Turnstile> <\<exists>S'. id<$unsat, #c> = #{} \<and> id<$alloc, #c> = #S' \<and> Return c S'>_vars"
-      thus "t \<Turnstile> id<alloc, #c> = #{} \<or> (\<exists>S'. #((S', S) \<in> finite_psubset) \<and> #S' \<noteq> #{} \<and> id<unsat, #c> = #{} \<and> id<alloc, #c> = #S')"
-        by (auto simp add: angle_def Return_def updated_def)
     qed
-    finally show "\<turnstile> SchedulingAllocator \<longrightarrow> (#c \<notin> set<sched> \<and> id<alloc, #c> \<noteq> #{} \<leadsto> id<alloc, #c> = #{}) ".
+
+    assume "(s, t) \<Turnstile> <\<exists>S. id<$unsat, #c> = #{} \<and> id<$alloc, #c> = #S \<and> Return c S>_vars"
+    thus "t \<Turnstile> id<alloc, #c> = #{}"
+      by (auto simp add: angle_def Return_def updated_def)
   qed
   finally show "\<turnstile> SchedulingAllocator \<longrightarrow> \<box>\<diamond>id<alloc, #c> = #{}" by (simp add: leadsto_def)
 qed
-
 
 end
 
