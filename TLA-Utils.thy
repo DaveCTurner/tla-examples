@@ -329,9 +329,9 @@ lemma imp_SFI:
 lemma imp_pred_leadsto_act_reflexive: "\<turnstile> S \<longrightarrow> (A \<leadsto> $A)"
   by (metis Init_stp_act_rev imp_leadsto_reflexive leadsto_def)
 
-lemma
+lemma imp_unstable_leadsto_change:
   assumes "\<turnstile> S \<longrightarrow> (P \<leadsto> \<not>P)"
-  shows imp_unstable_leadsto_change: "\<turnstile> S \<longrightarrow> (P \<leadsto> ($P \<and> \<not>P$))"
+  shows "\<turnstile> S \<longrightarrow> (P \<leadsto> ($P \<and> \<not>P$))"
 proof -
   note assms
   also have "\<turnstile> (P \<leadsto> \<not>P) \<longrightarrow> (P \<leadsto> ($P \<and> \<not>P$))"
