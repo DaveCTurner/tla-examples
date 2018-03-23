@@ -170,6 +170,12 @@ proof (intro tempI temp_impI)
     by (auto simp add: Valid_def)
 qed
 
+lemma imp_disj_leadstoI:
+  assumes 1: "\<turnstile> S \<longrightarrow> (A \<leadsto> C)"
+  assumes 2: "\<turnstile> S \<longrightarrow> (B \<leadsto> C)"
+  shows "\<turnstile> S \<longrightarrow> (A \<or> B \<leadsto> C)"
+  by (intro imp_leadsto_diamond [OF imp_leadsto_reflexive] assms)
+
 lemma temp_conj_eq_imp:
   assumes "\<turnstile> P \<longrightarrow> (Q = R)"
   shows "\<turnstile> (P \<and> Q) = (P \<and> R)"
@@ -366,5 +372,23 @@ lemma
 lemma shows imp_after_leadsto: "\<turnstile> S \<longrightarrow> (P$ \<leadsto> P)"
   unfolding Valid_def leadsto_def apply auto
   by (metis DmdPrime InitDmd dmdInitD necT tempD temp_imp_trans)
+
+lemma imp_eventually_leadsto_eventually[trans]:
+  assumes 1: "\<turnstile> S \<longrightarrow> \<diamond>P"
+  assumes 2: "\<turnstile> S \<longrightarrow> (P \<leadsto> Q)"
+  shows "\<turnstile> S \<longrightarrow> \<diamond>Q"
+proof (intro tempI temp_impI)
+  fix sigma assume sigma: "sigma \<Turnstile> S"
+  with 1 2 have 1: "sigma \<Turnstile> \<diamond>P" and 2: "sigma \<Turnstile> P \<leadsto> Q" by auto
+
+  from 1 2 show "sigma \<Turnstile> \<diamond>Q"
+    apply (simp add: leadsto_def)
+    by (metis DmdImpl2 dmdInit dup_dmdD)
+qed
+
+lemma imp_eventually_init:
+  assumes "\<turnstile> S \<longrightarrow> Init P"
+  shows "\<turnstile> S \<longrightarrow> \<diamond> P"
+  using assms InitDmd_gen temp_imp_trans by blast
 
 end
