@@ -836,304 +836,296 @@ proof -
 qed
 
 lemma infinitely_often_unscheduled: "\<turnstile> SchedulingAllocator \<longrightarrow> \<box>\<diamond>(#c \<notin> set<sched>)"
-proof -
-  have "\<turnstile> SchedulingAllocator \<longrightarrow> ((#True :: stpred) \<leadsto> (#c \<notin> set<sched>))"
-  proof (rule imp_leadsto_diamond)
-    show "\<turnstile> SchedulingAllocator \<longrightarrow> ((#True :: stpred) \<leadsto> #c \<notin> set<sched> \<or> #c \<in> set<sched>)"
-      "\<turnstile> SchedulingAllocator \<longrightarrow> (#c \<notin> set<sched> \<leadsto> #c \<notin> set<sched>)"
-      by (intro imp_imp_leadsto, simp)+
+proof (intro unstable_implies_infinitely_often)
+  have inductor_lt_simp: "\<And>i1 i2. ((i1, i2) \<in> {(i1, i2). i1 < i2}) = (i1 < i2)" by auto
 
-    have inductor_lt_simp: "\<And>i1 i2. ((i1, i2) \<in> {(i1, i2). i1 < i2}) = (i1 < i2)" by auto
-
-    have "\<turnstile> SchedulingAllocator \<longrightarrow> (#c \<in> set<sched> \<leadsto> (\<exists>i. #i = inductor c \<and> #c \<in> set<sched>))"
-      by (intro imp_imp_leadsto, auto)
-    also have "\<turnstile> SchedulingAllocator \<longrightarrow> ((\<exists>i. #i = inductor c \<and> #c \<in> set<sched>) \<leadsto> #c \<notin> set<sched>)"
-    proof (intro wf_imp_ex_leadsto [OF wf_prec_Inductor], rule imp_leadsto_diamond, unfold inductor_prec_simp)
-      fix i
-      show "\<turnstile> SchedulingAllocator
+  have "\<turnstile> SchedulingAllocator \<longrightarrow> (#c \<in> set<sched> \<leadsto> (\<exists>i. #i = inductor c \<and> #c \<in> set<sched>))"
+    by (intro imp_imp_leadsto, auto)
+  also have "\<turnstile> SchedulingAllocator \<longrightarrow> ((\<exists>i. #i = inductor c \<and> #c \<in> set<sched>) \<leadsto> #c \<notin> set<sched>)"
+  proof (intro wf_imp_ex_leadsto [OF wf_prec_Inductor], rule imp_leadsto_diamond, unfold inductor_prec_simp)
+    fix i
+    show "\<turnstile> SchedulingAllocator
               \<longrightarrow> (#i = inductor c \<and> #c \<in> set<sched>
                 \<leadsto> (#i = inductor c \<and> #c \<in> set<sched> \<and> id<unsat,hd<sched>> \<inter> available = #{})
                   \<or> (#i = inductor c \<and> #c \<in> set<sched> \<and> id<unsat,hd<sched>> \<inter> available \<noteq> #{}))"
-        by (intro imp_imp_leadsto, auto)
+      by (intro imp_imp_leadsto, auto)
 
-      have "\<turnstile> SchedulingAllocator
+    have "\<turnstile> SchedulingAllocator
             \<longrightarrow> (#i = inductor c \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> available = #{}
               \<leadsto> (Safety \<and> #i = inductor c \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> available = #{}))"
-        by (intro imp_INV_leadsto [OF safety imp_imp_leadsto], auto)
-      also have "\<turnstile> SchedulingAllocator
+      by (intro imp_INV_leadsto [OF safety imp_imp_leadsto], auto)
+    also have "\<turnstile> SchedulingAllocator
             \<longrightarrow> (Safety \<and> #i = inductor c \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> available = #{}
               \<leadsto> (\<exists> blocker. #i = inductor c \<and> #c \<in> set<sched>
                                    \<and> id<unsat, hd<sched>> \<inter> available = #{}
                                    \<and> id<unsat, hd<sched>> \<inter> id<alloc,#blocker> \<noteq> #{}))"
-      proof (intro imp_imp_leadsto intI temp_impI, clarsimp)
-        fix s
-        assume s_Safety: "s \<Turnstile> Safety" and scheduled: "c \<in> set (sched s)" and blocked: "unsat s (hd (sched s)) \<inter> available s = {}"
-        from scheduled have "hd (sched s) \<in> set (sched s)" by (cases "sched s", auto)
-        with s_Safety have "unsat s (hd (sched s)) \<noteq> {}" by (auto simp add: Safety_def AllocatorInvariant_def)
-        with blocked show "\<exists>blocker. unsat s (hd (sched s)) \<inter> alloc s blocker \<noteq> {}" by (auto simp add: available_def)
-      qed
-      also have "\<turnstile> SchedulingAllocator
+    proof (intro imp_imp_leadsto intI temp_impI, clarsimp)
+      fix s
+      assume s_Safety: "s \<Turnstile> Safety" and scheduled: "c \<in> set (sched s)" and blocked: "unsat s (hd (sched s)) \<inter> available s = {}"
+      from scheduled have "hd (sched s) \<in> set (sched s)" by (cases "sched s", auto)
+      with s_Safety have "unsat s (hd (sched s)) \<noteq> {}" by (auto simp add: Safety_def AllocatorInvariant_def)
+      with blocked show "\<exists>blocker. unsat s (hd (sched s)) \<inter> alloc s blocker \<noteq> {}" by (auto simp add: available_def)
+    qed
+    also have "\<turnstile> SchedulingAllocator
             \<longrightarrow> ((\<exists> blocker. #i = inductor c \<and> #c \<in> set<sched>
                                    \<and> id<unsat, hd<sched>> \<inter> available = #{}
                                    \<and> id<unsat, hd<sched>> \<inter> id<alloc,#blocker> \<noteq> #{})
               \<leadsto> #c \<notin> set<sched> \<or> (\<exists>i'. #(i' \<prec> i) \<and> #i' = inductor c \<and> #c \<in> set<sched>))"
-      proof (intro imp_exists_leadstoI WF1_SchedulingAllocator_Return)
-        fix blocker s t
-        assume "s \<Turnstile> #i = inductor c \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> available = #{} \<and> id<unsat, hd<sched>> \<inter> id<alloc, #blocker> \<noteq> #{}"
-        hence s: "i = inductor c s" "c \<in> set (sched s)"
-          "unsat s (hd (sched s)) \<inter> alloc s blocker \<noteq> {}"
-          "unsat s (hd (sched s)) \<inter> available s = {}"
-          by simp_all
+    proof (intro imp_exists_leadstoI WF1_SchedulingAllocator_Return)
+      fix blocker s t
+      assume "s \<Turnstile> #i = inductor c \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> available = #{} \<and> id<unsat, hd<sched>> \<inter> id<alloc, #blocker> \<noteq> #{}"
+      hence s: "i = inductor c s" "c \<in> set (sched s)"
+        "unsat s (hd (sched s)) \<inter> alloc s blocker \<noteq> {}"
+        "unsat s (hd (sched s)) \<inter> available s = {}"
+        by simp_all
 
-        thus "s \<Turnstile> id<alloc, #blocker> \<noteq> #{}" by auto
+      thus "s \<Turnstile> id<alloc, #blocker> \<noteq> #{}" by auto
 
-        assume s_Safety: "s \<Turnstile> Safety"
-        assume Next: "(s,t) \<Turnstile> [Next]_vars"
+      assume s_Safety: "s \<Turnstile> Safety"
+      assume Next: "(s,t) \<Turnstile> [Next]_vars"
 
-        from s s_Safety have blocker_ne_hd: "blocker \<noteq> hd (sched s)"
-          unfolding Safety_def AllocatorInvariant_def by (simp, blast)
+      from s s_Safety have blocker_ne_hd: "blocker \<noteq> hd (sched s)"
+        unfolding Safety_def AllocatorInvariant_def by (simp, blast)
 
-        with s have hd_hpc_blocker: "hd (sched s) \<in> higherPriorityClients blocker s"
-          unfolding higherPriorityClients_def by (cases "sched s", auto)
+      with s have hd_hpc_blocker: "hd (sched s) \<in> higherPriorityClients blocker s"
+        unfolding higherPriorityClients_def by (cases "sched s", auto)
 
-        with s s_Safety have blocker_unscheduled: "blocker \<notin> set (sched s)"
-          unfolding Safety_def AllocatorInvariant_def by (simp, blast)
+      with s s_Safety have blocker_unscheduled: "blocker \<notin> set (sched s)"
+        unfolding Safety_def AllocatorInvariant_def by (simp, blast)
 
-        from s_Safety s
-        have blocker_unpooled: "blocker \<notin> pool s"
-          unfolding Safety_def AllocatorInvariant_def by auto
+      from s_Safety s
+      have blocker_unpooled: "blocker \<notin> pool s"
+        unfolding Safety_def AllocatorInvariant_def by auto
 
-        from s_Safety blocker_unscheduled blocker_unpooled have blocker_satisfied: "unsat s blocker = {}"
-          unfolding Safety_def AllocatorInvariant_def by auto
-        thus "s \<Turnstile> id<unsat, #blocker> = #{}" by simp
+      from s_Safety blocker_unscheduled blocker_unpooled have blocker_satisfied: "unsat s blocker = {}"
+        unfolding Safety_def AllocatorInvariant_def by auto
+      thus "s \<Turnstile> id<unsat, #blocker> = #{}" by simp
 
-        have "(s, t) \<Turnstile> (op \<preceq>)<inductor c$,$inductor c> \<or> #c \<notin> set<sched$>"
-          by (intro scheduled_progress s_Safety Next s)
-        with s_Safety consider
-          (alloc) "c \<notin> set (sched t)"
-          | (progress) "c \<in> set (sched t)" "inductor c t \<prec> inductor c s"
-          | (same) "c \<in> set (sched t)" "inductor c t = inductor c s"
-            "(unsat t (hd (sched t)) \<inter> available t = {}) = (unsat s (hd (sched s)) \<inter> available s = {})"
-          by (cases "c \<in> set (sched t)", auto simp add: prec_eq_Inductor_def inductor_def)
-        note progress_cases = this
+      have "(s, t) \<Turnstile> (op \<preceq>)<inductor c$,$inductor c> \<or> #c \<notin> set<sched$>"
+        by (intro scheduled_progress s_Safety Next s)
+      with s_Safety consider
+        (alloc) "c \<notin> set (sched t)"
+        | (progress) "c \<in> set (sched t)" "inductor c t \<prec> inductor c s"
+        | (same) "c \<in> set (sched t)" "inductor c t = inductor c s"
+          "(unsat t (hd (sched t)) \<inter> available t = {}) = (unsat s (hd (sched s)) \<inter> available s = {})"
+        by (cases "c \<in> set (sched t)", auto simp add: prec_eq_Inductor_def inductor_def)
+      note progress_cases = this
 
-        from progress_cases
-        show "t \<Turnstile> #i = inductor c \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> available = #{}
+      from progress_cases
+      show "t \<Turnstile> #i = inductor c \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> available = #{}
                                \<and> id<unsat, hd<sched>> \<inter> id<alloc, #blocker> \<noteq> #{} \<or> #c \<notin> set<sched>
                     \<or> (\<exists>i'. #(i' \<prec> i) \<and> #i' = inductor c \<and> #c \<in> set<sched>)"
-        proof cases
-          case alloc thus ?thesis by simp
-        next
-          case progress thus ?thesis by (auto simp add: s)
-        next
-          case same
+      proof cases
+        case alloc thus ?thesis by simp
+      next
+        case progress thus ?thesis by (auto simp add: s)
+      next
+        case same
 
-          from Next have "unsat t (hd (sched t)) \<inter> alloc t blocker \<noteq> {}"
-          proof (cases rule: square_Next_cases)
-            case unchanged with s show ?thesis by simp
+        from Next have "unsat t (hd (sched t)) \<inter> alloc t blocker \<noteq> {}"
+        proof (cases rule: square_Next_cases)
+          case unchanged with s show ?thesis by simp
+        next
+          case (Request c' S')
+          with s have "hd (sched s) \<noteq> c'" by auto
+          with Request s show ?thesis by auto
+        next
+          case (Schedule poolOrder)
+          from s have "hd (sched t) = hd (sched s)" by (cases "sched s", auto simp add: Schedule)
+          with s show ?thesis by (simp add: Schedule)
+        next
+          case (Allocate c' S')
+          from Allocate blocker_satisfied have blocker_ne: "blocker \<noteq> c'" by auto
+          show ?thesis
+          proof (cases "c' = hd (sched s)")
+            case True
+            with Allocate s have "S' \<noteq> unsat s c'" by (auto simp add: available_def)
+            with blocker_ne True Allocate have "unsat t (hd (sched t)) \<inter> alloc t blocker = unsat s (hd (sched s)) \<inter> alloc s blocker"
+              by (auto simp add: True del_def available_def)
+            with s show ?thesis by simp
           next
-            case (Request c' S')
-            with s have "hd (sched s) \<noteq> c'" by auto
-            with Request s show ?thesis by auto
+            case False
+            moreover from False s have "hd (sched t) = hd (sched s)" by (cases "sched s", auto simp add: Allocate)
+            moreover from blocker_ne have alloc_blocker_eq: "alloc t blocker = alloc s blocker" by (simp add: Allocate)
+            moreover note s
+            ultimately show ?thesis by (simp add: Allocate)
+          qed
+        next
+          case (Return c' S')
+          show ?thesis
+          proof (cases "c' = blocker")
+            case False with Return s show ?thesis by auto
           next
-            case (Schedule poolOrder)
-            from s have "hd (sched t) = hd (sched s)" by (cases "sched s", auto simp add: Schedule)
-            with s show ?thesis by (simp add: Schedule)
-          next
-            case (Allocate c' S')
-            from Allocate blocker_satisfied have blocker_ne: "blocker \<noteq> c'" by auto
+            case c'_blocker: True
+            from s obtain r where r: "r \<in> unsat s (hd (sched s))" "r \<in> alloc s blocker" by auto
             show ?thesis
-            proof (cases "c' = hd (sched s)")
-              case True
-              with Allocate s have "S' \<noteq> unsat s c'" by (auto simp add: available_def)
-              with blocker_ne True Allocate have "unsat t (hd (sched t)) \<inter> alloc t blocker = unsat s (hd (sched s)) \<inter> alloc s blocker"
-                by (auto simp add: True del_def available_def)
-              with s show ?thesis by simp
+            proof (cases "r \<in> S'")
+              case False with r Return c'_blocker show ?thesis by auto
             next
-              case False
-              moreover from False s have "hd (sched t) = hd (sched s)" by (cases "sched s", auto simp add: Allocate)
-              moreover from blocker_ne have alloc_blocker_eq: "alloc t blocker = alloc s blocker" by (simp add: Allocate)
-              moreover note s
-              ultimately show ?thesis by (simp add: Allocate)
-            qed
-          next
-            case (Return c' S')
-            show ?thesis
-            proof (cases "c' = blocker")
-              case False with Return s show ?thesis by auto
-            next
-              case c'_blocker: True
-              from s obtain r where r: "r \<in> unsat s (hd (sched s))" "r \<in> alloc s blocker" by auto
-              show ?thesis
-              proof (cases "r \<in> S'")
-                case False with r Return c'_blocker show ?thesis by auto
-              next
-                case True with Return s_Safety r c'_blocker have "r \<in> available t"
-                  unfolding available_def Safety_def MutualExclusion_def apply auto
-                  by (metis Diff_disjoint del_def disjoint_iff_not_equal modifyAt_eq_simp modifyAt_ne_simp)
-                with same s r Return show ?thesis by auto
-              qed
+              case True with Return s_Safety r c'_blocker have "r \<in> available t"
+                unfolding available_def Safety_def MutualExclusion_def apply auto
+                by (metis Diff_disjoint del_def disjoint_iff_not_equal modifyAt_eq_simp modifyAt_ne_simp)
+              with same s r Return show ?thesis by auto
             qed
           qed
-
-          with same s show ?thesis by auto
         qed
 
-        assume "(s, t) \<Turnstile> <\<exists>S. id<$unsat, #blocker> = #{} \<and> id<$alloc, #blocker> = #S \<and> Return blocker S>_vars"
-        hence  alloc_t_blocker_eq: "alloc t blocker = {}" and Return_simps: "sched t = sched s" "unsat t = unsat s"
-          and Return: "(s,t) \<Turnstile> \<exists> S. Return blocker S"
-          by (auto simp add: Return_def angle_def vars_def updated_def)
-        from Return obtain S' where Return: "(s,t) \<Turnstile> Return blocker S'" by auto
-
-        from progress_cases
-        show "t \<Turnstile> #c \<notin> set<sched> \<or> (\<exists>i'. #(i' \<prec> i) \<and> #i' = inductor c \<and> #c \<in> set<sched>)"
-        proof cases
-          case alloc thus ?thesis by simp
-        next
-          case progress thus ?thesis by (auto simp add: s)
-        next
-          case same
-          from s obtain r where r: "r \<in> unsat s (hd (sched s))" "r \<in> alloc s blocker" by auto
-          from r s_Safety alloc_t_blocker_eq Return have "r \<in> unsat s (hd (sched s)) \<inter> available t"
-            unfolding available_def Safety_def MutualExclusion_def Return_def updated_def
-            apply auto
-            by (metis alloc_t_blocker_eq disjoint_iff_not_equal inf.idem modifyAt_ne_simp)
-          with s same show ?thesis unfolding Return_simps by auto
-        qed
+        with same s show ?thesis by auto
       qed
-      finally show "\<turnstile> SchedulingAllocator \<longrightarrow> (#i = inductor c \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> available = #{} \<leadsto> #c \<notin> set<sched> \<or> (\<exists>i'. #(i' \<prec> i) \<and> #i' = inductor c \<and> #c \<in> set<sched>)) ".
 
-      have "\<turnstile> SchedulingAllocator \<longrightarrow> (#i = inductor c \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> available \<noteq> #{} \<leadsto> (\<exists> topPriority. #i = inductor c \<and> #topPriority = hd<sched> \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> available \<noteq> #{}))"
-        by (intro imp_imp_leadsto, auto)
-      also have "\<turnstile> SchedulingAllocator \<longrightarrow> ((\<exists> topPriority. #i = inductor c \<and> #topPriority = hd<sched> \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> available \<noteq> #{}) 
+      assume "(s, t) \<Turnstile> <\<exists>S. id<$unsat, #blocker> = #{} \<and> id<$alloc, #blocker> = #S \<and> Return blocker S>_vars"
+      hence  alloc_t_blocker_eq: "alloc t blocker = {}" and Return_simps: "sched t = sched s" "unsat t = unsat s"
+        and Return: "(s,t) \<Turnstile> \<exists> S. Return blocker S"
+        by (auto simp add: Return_def angle_def vars_def updated_def)
+      from Return obtain S' where Return: "(s,t) \<Turnstile> Return blocker S'" by auto
+
+      from progress_cases
+      show "t \<Turnstile> #c \<notin> set<sched> \<or> (\<exists>i'. #(i' \<prec> i) \<and> #i' = inductor c \<and> #c \<in> set<sched>)"
+      proof cases
+        case alloc thus ?thesis by simp
+      next
+        case progress thus ?thesis by (auto simp add: s)
+      next
+        case same
+        from s obtain r where r: "r \<in> unsat s (hd (sched s))" "r \<in> alloc s blocker" by auto
+        from r s_Safety alloc_t_blocker_eq Return have "r \<in> unsat s (hd (sched s)) \<inter> available t"
+          unfolding available_def Safety_def MutualExclusion_def Return_def updated_def
+          apply auto
+          by (metis alloc_t_blocker_eq disjoint_iff_not_equal inf.idem modifyAt_ne_simp)
+        with s same show ?thesis unfolding Return_simps by auto
+      qed
+    qed
+    finally show "\<turnstile> SchedulingAllocator \<longrightarrow> (#i = inductor c \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> available = #{} \<leadsto> #c \<notin> set<sched> \<or> (\<exists>i'. #(i' \<prec> i) \<and> #i' = inductor c \<and> #c \<in> set<sched>)) ".
+
+    have "\<turnstile> SchedulingAllocator \<longrightarrow> (#i = inductor c \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> available \<noteq> #{} \<leadsto> (\<exists> topPriority. #i = inductor c \<and> #topPriority = hd<sched> \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> available \<noteq> #{}))"
+      by (intro imp_imp_leadsto, auto)
+    also have "\<turnstile> SchedulingAllocator \<longrightarrow> ((\<exists> topPriority. #i = inductor c \<and> #topPriority = hd<sched> \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> available \<noteq> #{}) 
                         \<leadsto> #c \<notin> set<sched> \<or> (\<exists>y. #(y \<prec> i) \<and> #y = inductor c \<and> #c \<in> set<sched>))"
-      proof (intro imp_exists_leadstoI WF1_SchedulingAllocator_Allocate)
-        fix s t
-        assume s_Safety: "Safety s" and Next: "(s,t) \<Turnstile> [Next]_vars"
+    proof (intro imp_exists_leadstoI WF1_SchedulingAllocator_Allocate)
+      fix s t
+      assume s_Safety: "Safety s" and Next: "(s,t) \<Turnstile> [Next]_vars"
 
-        fix topPriority
-        assume "s \<Turnstile> #i = inductor c \<and> #topPriority = hd<sched> \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> available \<noteq> #{}"
-        hence s: "i = inductor c s" "topPriority = hd (sched s)" "c \<in> set (sched s)" "unsat s (hd (sched s)) \<inter> available s \<noteq> {}" by auto
-        from s have hpc_topPriority: "higherPriorityClients topPriority s = {}" unfolding higherPriorityClients_def by (cases "sched s", auto)
+      fix topPriority
+      assume "s \<Turnstile> #i = inductor c \<and> #topPriority = hd<sched> \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> available \<noteq> #{}"
+      hence s: "i = inductor c s" "topPriority = hd (sched s)" "c \<in> set (sched s)" "unsat s (hd (sched s)) \<inter> available s \<noteq> {}" by auto
+      from s have hpc_topPriority: "higherPriorityClients topPriority s = {}" unfolding higherPriorityClients_def by (cases "sched s", auto)
 
-        from s show "s \<Turnstile> available \<inter> id<unsat, hd<sched>> \<noteq> #{}" "s \<Turnstile> sched \<noteq> #[]" by auto
+      from s show "s \<Turnstile> available \<inter> id<unsat, hd<sched>> \<noteq> #{}" "s \<Turnstile> sched \<noteq> #[]" by auto
 
-        have "(s, t) \<Turnstile> (op \<preceq>)<inductor c$,$inductor c> \<or> #c \<notin> set<sched$>"
-          by (intro scheduled_progress s_Safety Next s)
-        with s_Safety consider
-          (alloc) "c \<notin> set (sched t)"
-          | (progress) "c \<in> set (sched t)" "inductor c t \<prec> inductor c s"
-          | (same) "c \<in> set (sched t)" "inductor c t = inductor c s"
-            "higherPriorityClients c t = higherPriorityClients c s"
-            "(unsat t (hd (sched t)) \<inter> available t = {}) = (unsat s (hd (sched s)) \<inter> available s = {})"
-            "unsat t (hd (sched t)) = unsat s (hd (sched s))"
-          by (cases "c \<in> set (sched t)", auto simp add: prec_eq_Inductor_def inductor_def)
-        note progress_cases = this
+      have "(s, t) \<Turnstile> (op \<preceq>)<inductor c$,$inductor c> \<or> #c \<notin> set<sched$>"
+        by (intro scheduled_progress s_Safety Next s)
+      with s_Safety consider
+        (alloc) "c \<notin> set (sched t)"
+        | (progress) "c \<in> set (sched t)" "inductor c t \<prec> inductor c s"
+        | (same) "c \<in> set (sched t)" "inductor c t = inductor c s"
+          "higherPriorityClients c t = higherPriorityClients c s"
+          "(unsat t (hd (sched t)) \<inter> available t = {}) = (unsat s (hd (sched s)) \<inter> available s = {})"
+          "unsat t (hd (sched t)) = unsat s (hd (sched s))"
+        by (cases "c \<in> set (sched t)", auto simp add: prec_eq_Inductor_def inductor_def)
+      note progress_cases = this
 
-        from progress_cases
-        show "t \<Turnstile> #i = inductor c \<and> #topPriority = hd<sched> \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> available \<noteq> #{} \<or> #c \<notin> set<sched> \<or> (\<exists>y. #(y \<prec> i) \<and> #y = inductor c \<and> #c \<in> set<sched>)"
-        proof cases
-          case alloc then show ?thesis by auto
+      from progress_cases
+      show "t \<Turnstile> #i = inductor c \<and> #topPriority = hd<sched> \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> available \<noteq> #{} \<or> #c \<notin> set<sched> \<or> (\<exists>y. #(y \<prec> i) \<and> #y = inductor c \<and> #c \<in> set<sched>)"
+      proof cases
+        case alloc then show ?thesis by auto
+      next
+        case progress with s show ?thesis by auto
+      next
+        case same
+        from Next show ?thesis
+        proof (cases rule: square_Next_cases)
+          case unchanged with s same show ?thesis by (auto simp add: available_def)
         next
-          case progress with s show ?thesis by auto
+          case (Request c' S')
+          with s have c'_ne_hd: "c' \<noteq> hd (sched s)" by auto
+          with s Request same show ?thesis by auto
         next
-          case same
-          from Next show ?thesis
-          proof (cases rule: square_Next_cases)
-            case unchanged with s same show ?thesis by (auto simp add: available_def)
+          case (Schedule poolOrder) with s same show ?thesis by (cases "sched s", auto)
+        next
+          case (Return c' S') with s same show ?thesis by auto
+        next
+          case (Allocate c' S')
+          from s have hd_scheduled: "hd (sched s) \<in> set (sched s)" by (cases "sched s", auto)
+          show ?thesis
+          proof (cases "c' = hd (sched s)")
+            case False
+            with hd_scheduled have hd_eq: "hd (sched t) = hd (sched s)"
+              unfolding Allocate by (cases "S' = unsat s c'", auto, cases "sched s", auto)
+            have unsat_hd_eq: "unsat t (hd (sched s)) = unsat s (hd (sched s))"
+              unfolding Allocate using False by auto
+            from False have hd_hpc: "hd (sched s) \<in> higherPriorityClients c' s"
+              unfolding higherPriorityClients_def using hd_scheduled by (cases "sched s", auto)
+
+            have unavailable_eq: "unsat s (hd (sched s)) \<inter> available t = unsat s (hd (sched s)) \<inter> available s"
+              using hd_hpc Allocate by auto
+
+            from s show ?thesis by (auto simp add: hd_eq unsat_hd_eq unavailable_eq same)
           next
-            case (Request c' S')
-            with s have c'_ne_hd: "c' \<noteq> hd (sched s)" by auto
-            with s Request same show ?thesis by auto
-          next
-            case (Schedule poolOrder) with s same show ?thesis by (cases "sched s", auto)
-          next
-            case (Return c' S') with s same show ?thesis by auto
-          next
-            case (Allocate c' S')
-            from s have hd_scheduled: "hd (sched s) \<in> set (sched s)" by (cases "sched s", auto)
+            case c'_hd[simp]: True
             show ?thesis
-            proof (cases "c' = hd (sched s)")
-              case False
-              with hd_scheduled have hd_eq: "hd (sched t) = hd (sched s)"
-                unfolding Allocate by (cases "S' = unsat s c'", auto, cases "sched s", auto)
-              have unsat_hd_eq: "unsat t (hd (sched s)) = unsat s (hd (sched s))"
-                unfolding Allocate using False by auto
-              from False have hd_hpc: "hd (sched s) \<in> higherPriorityClients c' s"
-                unfolding higherPriorityClients_def using hd_scheduled by (cases "sched s", auto)
-
-              have unavailable_eq: "unsat s (hd (sched s)) \<inter> available t = unsat s (hd (sched s)) \<inter> available s"
-                using hd_hpc Allocate by auto
-
-              from s show ?thesis by (auto simp add: hd_eq unsat_hd_eq unavailable_eq same)
-            next
-              case c'_hd[simp]: True
-              show ?thesis
-              proof (cases "S' = unsat s c'")
-                case False with s same Allocate show ?thesis by auto
-              next
-                case True
-                moreover from True same have "c \<noteq> hd (sched s)" unfolding Allocate by auto
-                moreover from same have "higherPriorityClients c t = higherPriorityClients c s" by simp
-                ultimately have False unfolding higherPriorityClients_def Allocate
-                  using s apply (cases "sched s") apply auto using set_takeWhileD by fastforce
-                thus ?thesis by simp
-              qed
-            qed
-          qed
-        qed
-
-        assume "(s,t) \<Turnstile> <\<exists>S ct. #ct = hd<$sched> \<and> Allocate ct S>_vars"
-        hence assm_Allocate: "(s,t) \<Turnstile> \<exists>S. <Allocate topPriority S>_vars" using s by (auto simp add: angle_def)
-
-        from progress_cases
-        show "t \<Turnstile> #c \<notin> set<sched> \<or> (\<exists>y. #(y \<prec> i) \<and> #y = inductor c \<and> #c \<in> set<sched>)"
-        proof cases
-          case alloc then show ?thesis by auto
-        next
-          case progress with s show ?thesis by auto
-        next
-          case same
-          from Next show ?thesis
-          proof (cases rule: square_Next_cases)
-            case unchanged with assm_Allocate show ?thesis by (simp add: angle_def vars_def)
-          next
-            case (Request c' S') with assm_Allocate show ?thesis apply (auto simp add: angle_def Allocate_def updated_def)
-              by (metis Int_emptyI Request(6) equals0D modifyAt_ne_simp s(2) s(4))
-          next
-            case (Schedule poolOrder) with assm_Allocate show ?thesis by (auto simp add: angle_def Allocate_def updated_def)
-          next
-            case (Return c' S') with assm_Allocate show ?thesis apply (auto simp add: angle_def Allocate_def updated_def)
-              by (metis del_simp modifyAt_eq_simp subset_iff)
-          next
-            case (Allocate c' S')
-            with assm_Allocate have c'_eq: "c' = topPriority" apply (auto simp add: angle_def Allocate_def updated_def)
-              using Allocate(10) by auto
-            have unsat_eq: "unsat s c' = unsat t c'"
             proof (cases "S' = unsat s c'")
-              case False
-              with same show ?thesis unfolding c'_eq s Allocate by simp
+              case False with s same Allocate show ?thesis by auto
             next
               case True
-              with `c \<in> set (sched t)` have ne: "c \<noteq> c'" unfolding Allocate by auto
-              have "c' \<in> higherPriorityClients c s" 
-                using ne s unfolding higherPriorityClients_def c'_eq s by (cases "sched s", simp_all)
-              also from same have "... = higherPriorityClients c t" by simp
-              also have "... \<subseteq> set (sched t)" unfolding higherPriorityClients_def using set_takeWhileD by fastforce
-              finally have False unfolding Allocate True by auto
+              moreover from True same have "c \<noteq> hd (sched s)" unfolding Allocate by auto
+              moreover from same have "higherPriorityClients c t = higherPriorityClients c s" by simp
+              ultimately have False unfolding higherPriorityClients_def Allocate
+                using s apply (cases "sched s") apply auto using set_takeWhileD by fastforce
               thus ?thesis by simp
             qed
-            from Allocate have "unsat s c' \<noteq> unsat t c'" by auto
-            with unsat_eq show ?thesis by simp
           qed
         qed
       qed
-      finally
-      show "\<turnstile> SchedulingAllocator \<longrightarrow> (#i = inductor c \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> available \<noteq> #{} \<leadsto> #c \<notin> set<sched> \<or> (\<exists>y. #(y \<prec> i) \<and> #y = inductor c \<and> #c \<in> set<sched>))" .
+
+      assume "(s,t) \<Turnstile> <\<exists>S ct. #ct = hd<$sched> \<and> Allocate ct S>_vars"
+      hence assm_Allocate: "(s,t) \<Turnstile> \<exists>S. <Allocate topPriority S>_vars" using s by (auto simp add: angle_def)
+
+      from progress_cases
+      show "t \<Turnstile> #c \<notin> set<sched> \<or> (\<exists>y. #(y \<prec> i) \<and> #y = inductor c \<and> #c \<in> set<sched>)"
+      proof cases
+        case alloc then show ?thesis by auto
+      next
+        case progress with s show ?thesis by auto
+      next
+        case same
+        from Next show ?thesis
+        proof (cases rule: square_Next_cases)
+          case unchanged with assm_Allocate show ?thesis by (simp add: angle_def vars_def)
+        next
+          case (Request c' S') with assm_Allocate show ?thesis apply (auto simp add: angle_def Allocate_def updated_def)
+            by (metis Int_emptyI Request(6) equals0D modifyAt_ne_simp s(2) s(4))
+        next
+          case (Schedule poolOrder) with assm_Allocate show ?thesis by (auto simp add: angle_def Allocate_def updated_def)
+        next
+          case (Return c' S') with assm_Allocate show ?thesis apply (auto simp add: angle_def Allocate_def updated_def)
+            by (metis del_simp modifyAt_eq_simp subset_iff)
+        next
+          case (Allocate c' S')
+          with assm_Allocate have c'_eq: "c' = topPriority" apply (auto simp add: angle_def Allocate_def updated_def)
+            using Allocate(10) by auto
+          have unsat_eq: "unsat s c' = unsat t c'"
+          proof (cases "S' = unsat s c'")
+            case False
+            with same show ?thesis unfolding c'_eq s Allocate by simp
+          next
+            case True
+            with `c \<in> set (sched t)` have ne: "c \<noteq> c'" unfolding Allocate by auto
+            have "c' \<in> higherPriorityClients c s" 
+              using ne s unfolding higherPriorityClients_def c'_eq s by (cases "sched s", simp_all)
+            also from same have "... = higherPriorityClients c t" by simp
+            also have "... \<subseteq> set (sched t)" unfolding higherPriorityClients_def using set_takeWhileD by fastforce
+            finally have False unfolding Allocate True by auto
+            thus ?thesis by simp
+          qed
+          from Allocate have "unsat s c' \<noteq> unsat t c'" by auto
+          with unsat_eq show ?thesis by simp
+        qed
+      qed
     qed
-    finally show "\<turnstile> SchedulingAllocator \<longrightarrow> (#c \<in> set<sched> \<leadsto> #c \<notin> set<sched>) ".
+    finally
+    show "\<turnstile> SchedulingAllocator \<longrightarrow> (#i = inductor c \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> available \<noteq> #{} \<leadsto> #c \<notin> set<sched> \<or> (\<exists>y. #(y \<prec> i) \<and> #y = inductor c \<and> #c \<in> set<sched>))" .
   qed
-  thus ?thesis by (simp add: leadsto_def)
+  finally show "\<turnstile> SchedulingAllocator \<longrightarrow> (\<not> #c \<notin> set<sched> \<leadsto> #c \<notin> set<sched>) " by simp
 qed
 
 lemma infinitely_often_freed: "\<turnstile> SchedulingAllocator \<longrightarrow> \<box>\<diamond>(id<alloc,#c> = #{})"
