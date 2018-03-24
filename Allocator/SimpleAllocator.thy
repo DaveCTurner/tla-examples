@@ -46,7 +46,7 @@ locale SimpleAllocator =
   defines "MutualExclusion \<equiv> PRED \<forall> c1 c2. #c1 \<noteq> #c2 \<longrightarrow> id<alloc,#c1> \<inter> id<alloc,#c2> = #{}"
     (* finiteness safety property *)
   fixes FiniteRequests :: stpred
-  defines "FiniteRequests \<equiv> PRED \<forall> c. \<exists>S. id<unsat,#c> = #S \<and> #(finite S)"
+  defines "FiniteRequests \<equiv> PRED \<forall> c. finite<id<unsat,#c>>"
     (* overall safety property *)
   fixes Safety :: stpred
   defines "Safety \<equiv> PRED (MutualExclusion \<and> FiniteRequests)"
