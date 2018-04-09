@@ -5,13 +5,40 @@ begin
 locale LinkedList =
   fixes headCell :: 'Cell
   fixes nextCell :: "'Cell \<Rightarrow> 'Cell option"
-  fixes r :: "('Cell \<times> 'Cell) set"
-  defines "r \<equiv> {(c1, c2). nextCell c1 = Some c2}"
-  fixes listFrom :: "'Cell \<Rightarrow> 'Cell set"
-  defines "listFrom c \<equiv> {c'. (c, c') \<in> rtrancl r}"
-  assumes finiteList: "finite (listFrom headCell)"
+  assumes finiteNext: "finite { c. nextCell c \<noteq> None }"
 
 context LinkedList begin
+
+definition r :: "('Cell \<times> 'Cell) set"
+  where "r \<equiv> {(c1, c2). nextCell c1 = Some c2}"
+
+definition listFrom :: "'Cell \<Rightarrow> 'Cell set"
+  where "listFrom c \<equiv> {c'. (c, c') \<in> rtrancl r}"
+
+lemma finiteList: "finite (listFrom headCell)"
+proof -
+  define theNextCell :: "'Cell \<Rightarrow> 'Cell"
+    where "\<And>c. theNextCell c \<equiv> THE c'. nextCell c = Some c'"
+
+  have "listFrom headCell \<subseteq> insert headCell (theNextCell ` { c. nextCell c \<noteq> None })"
+  proof (intro subsetI)
+    fix c
+    assume "c \<in> listFrom headCell"
+    hence "(headCell, c) \<in> rtrancl r"
+      by (simp add: listFrom_def)
+    thus "c \<in> insert headCell (theNextCell ` { c. nextCell c \<noteq> None })"
+    proof (induct rule: rtrancl_induct)
+      case (step c c') hence cc': "(c, c') \<in> r" by simp
+      show ?case
+      proof (intro insertI2 image_eqI CollectI)
+        from cc' show "nextCell c \<noteq> None" by (auto simp add: r_def)
+        from cc' show "c' = theNextCell c"
+          by (auto simp add: r_def theNextCell_def)
+      qed
+    qed simp
+  qed
+  from finite_subset [OF this] finiteNext show ?thesis by auto
+qed
 
 lemma unique_successor: "(c, c1) \<in> r \<Longrightarrow> (c, c2) \<in> r \<Longrightarrow> c1 = c2" by (auto simp add: r_def)
 

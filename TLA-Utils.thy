@@ -391,4 +391,9 @@ lemma imp_eventually_init:
   shows "\<turnstile> S \<longrightarrow> \<diamond> P"
   using assms InitDmd_gen temp_imp_trans by blast
 
+lemma imp_box_before_afterI:
+  assumes "\<turnstile> S \<longrightarrow> \<box>P"
+  shows "\<turnstile> S \<longrightarrow> \<box>($P \<and> P$)"
+  using assms using BoxPrime temp_imp_trans by blast
+
 end
