@@ -393,31 +393,11 @@ proof invariant
       by (auto simp add: Spec_def)
 
     show "\<turnstile> $Safety \<and> [Next]_(tortoise, hare, hasLoop) \<longrightarrow> Safety$"
-    proof (intro actionI temp_impI, elim temp_conjE)
+    proof (intro actionI temp_impI, elim temp_conjE, unfold unl_before)
       fix s t
-      assume "(s,t) \<Turnstile> $Safety" hence s_Safety: "s \<Turnstile> Safety" by simp
-      moreover assume "(s,t) \<Turnstile> [Next]_(tortoise, hare, hasLoop)"
-      ultimately show "(s,t) \<Turnstile> Safety$"
-      proof (cases rule: square_Next_cases)
-        case unchanged with s_Safety show ?thesis
-          by (auto simp add: Safety_def Invariant_def)
-      next
-        case (Step h') thus ?thesis
-          by (auto simp add: Safety_def Invariant_def)
-      next
-        case (FoundLoop h') 
-        hence "hasLoop t = Some True" "(hare t, hare t) \<in> trancl r"
-          "(headCell, hare t) \<in> rtrancl r" "loopExists" by auto
-        thus ?thesis by (auto simp add: Safety_def Invariant_def)
-      next
-        case LastHare
-        thus ?thesis by (auto simp add: Safety_def Invariant_def
-              loopExists_no_end)
-      next
-        case (PenultimateHare h')
-        thus ?thesis by (auto simp add: Safety_def Invariant_def
-              loopExists_no_end)
-      qed
+      assume "s \<Turnstile> Safety" "(s,t) \<Turnstile> [Next]_(tortoise, hare, hasLoop)"
+      thus "(s,t) \<Turnstile> Safety$"
+        by (cases rule: square_Next_cases, auto simp add: Safety_def Invariant_def loopExists_no_end)
     qed
   qed
 qed
