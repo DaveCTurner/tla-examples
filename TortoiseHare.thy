@@ -45,25 +45,20 @@ context LinkedList begin
 definition r :: "('Cell \<times> 'Cell) set"
   where "r \<equiv> {(c1, c2). nextCell c1 = Some c2}"
 
-definition listFrom :: "'Cell \<Rightarrow> 'Cell set"
-  where "listFrom c \<equiv> {c'. (c, c') \<in> rtrancl r}"
-
 definition loopExists :: bool
-  where "loopExists \<equiv> \<exists> c \<in> listFrom headCell. (c, c) \<in> trancl r"
+  where "loopExists \<equiv> \<exists> c. (headCell, c) \<in> rtrancl r \<and> (c, c) \<in> trancl r"
 
 lemma unique_successor: "(c, c1) \<in> r \<Longrightarrow> (c, c2) \<in> r \<Longrightarrow> c1 = c2" by (auto simp add: r_def)
 
-lemma finiteList: "finite (listFrom c)"
+lemma finiteList: "finite {c'. (c, c') \<in> rtrancl r}"
 proof -
   define theNextCell :: "'Cell \<Rightarrow> 'Cell"
     where "\<And>c. theNextCell c \<equiv> THE c'. nextCell c = Some c'"
 
-  have "listFrom c \<subseteq> insert c (theNextCell ` { c. nextCell c \<noteq> None })"
-  proof (intro subsetI)
+  have "{ c'. (c, c') \<in> rtrancl r } \<subseteq> insert c (theNextCell ` { c. nextCell c \<noteq> None })"
+  proof (intro subsetI, elim CollectE)
     fix c'
-    assume "c' \<in> listFrom c"
-    hence "(c, c') \<in> rtrancl r"
-      by (simp add: listFrom_def)
+    assume "(c, c') \<in> rtrancl r"
     thus "c' \<in> insert c (theNextCell ` { c. nextCell c \<noteq> None })"
     proof (induct rule: rtrancl_induct)
       case (step c c') hence cc': "(c, c') \<in> r" by simp
@@ -102,7 +97,7 @@ lemma loopExists_always_ahead:
 proof -
   from assms obtain cLoop
     where hd_cLoop: "(headCell, cLoop) \<in> rtrancl r" and cLoop: "(cLoop, cLoop) \<in> trancl r"
-    unfolding loopExists_def listFrom_def by auto
+    unfolding loopExists_def by auto
 
   show ?thesis
   proof (intro exI [where x = cLoop] conjI allI impI hd_cLoop)
@@ -125,42 +120,44 @@ proof -
 qed
 
 lemma loopExists_no_end:
-  "loopExists = (\<forall> c \<in> listFrom headCell. nextCell c \<noteq> None)"
+  "loopExists = (\<forall> c. (headCell, c) \<in> rtrancl r \<longrightarrow> nextCell c \<noteq> None)"
 proof (cases loopExists)
   case False
-  hence noLoop: "\<And>c. (headCell, c) \<in> rtrancl r \<Longrightarrow> (c,c) \<notin> trancl r" by (auto simp add: listFrom_def loopExists_def)
+  hence noLoop: "\<And>c. (headCell, c) \<in> rtrancl r \<Longrightarrow> (c,c) \<notin> trancl r" by (auto simp add: loopExists_def)
 
   define c where "c \<equiv> headCell"
   have hd_c: "(headCell, c) \<in> rtrancl r" by (auto simp add: c_def)
 
-  define S where "S = listFrom c"
-  from finiteList have finite_S: "finite S" by (simp add: S_def c_def)
+  define S where "S = { c'. (c, c') \<in> rtrancl r }"
+  from finiteList have finite_S: "finite S" by (simp add: S_def)
 
   from wf_finite_psubset finite_S hd_c S_def have "\<exists> c' \<in> S. nextCell c' = None"
   proof (induct S arbitrary: c rule: wf_induct_rule)
     case (less S)
     show ?case
     proof (cases "nextCell c")
-      case None with less show ?thesis by (auto simp add: listFrom_def)
+      case None with less show ?thesis by auto
     next
       case (Some c')
       hence cc': "(c, c') \<in> r" by (auto simp add: r_def)
 
-      have c'_subset_S: "listFrom c' \<subseteq> S"
-      proof (intro subsetI)
-        fix c'' assume "c'' \<in> listFrom c'"
-        hence "(c', c'') \<in> rtrancl r" by (simp add: listFrom_def)
-        with cc' show "c'' \<in> S" by (simp add: less listFrom_def)
+      define S' where "S' = {c''. (c', c'') \<in> rtrancl r }"
+
+      have S'_subset_S: "S' \<subseteq> S"
+        unfolding S'_def
+      proof (intro subsetI, elim CollectE)
+        fix c'' assume "(c', c'') \<in> rtrancl r"
+        with cc' show "c'' \<in> S" by (simp add: less)
       qed
 
-      have "\<exists>c'' \<in> listFrom c'. nextCell c'' = None"
-      proof (intro less iffD2 [OF in_finite_psubset] conjI psubsetI c'_subset_S notI)
+      have "\<exists>c'' \<in> S'. nextCell c'' = None"
+      proof (intro less iffD2 [OF in_finite_psubset] conjI psubsetI S'_subset_S notI)
         from less have "(headCell, c) \<in> rtrancl r" by simp also note cc'
         finally show "(headCell, c') \<in> rtrancl r".
-        from less c'_subset_S show "finite (listFrom c')" using infinite_super by blast
-        have "c \<in> S" by (simp add: less listFrom_def)
-        moreover assume "listFrom c' = S"
-        ultimately have "(c', c) \<in> rtrancl r" by (auto simp add: listFrom_def)
+        from less S'_subset_S show "finite S'" using infinite_super by blast
+        have "c \<in> S" by (simp add: less)
+        moreover assume "S' = S"
+        ultimately have "(c', c) \<in> rtrancl r" by (auto simp add: S'_def)
         from rtranclD [OF this] show False
         proof (elim disjE conjE)
           assume "c' = c" with cc' noLoop less show False by auto
@@ -168,8 +165,8 @@ proof (cases loopExists)
           note cc' also assume "(c', c) \<in> trancl r" 
           finally show False using noLoop less by auto
         qed
-      qed simp
-      with c'_subset_S show ?thesis by auto
+      qed (simp add: S'_def)
+      with S'_subset_S show ?thesis by auto
     qed
   qed
   with False show ?thesis by (auto simp add: S_def c_def)
@@ -180,9 +177,8 @@ next
       and cLoop: "\<And>c. (headCell, c) \<in> rtrancl r \<Longrightarrow> (c, cLoop) \<in> trancl r" by auto
 
   show ?thesis
-  proof (intro iffI ballI notI True)
-    fix c assume "c \<in> listFrom headCell"
-    hence "(headCell, c) \<in> rtrancl r" by (simp add: listFrom_def)
+  proof (intro iffI allI impI notI True)
+    fix c assume "(headCell, c) \<in> rtrancl r"
     hence "(c, cLoop) \<in> trancl r" by (simp add: cLoop)
     then obtain c' where "(c, c') \<in> r" by (metis tranclD)
     moreover assume "nextCell c = None"
@@ -198,7 +194,7 @@ context TortoiseHare
 begin
 
 definition Invariant :: stpred
-  where "Invariant \<equiv> PRED hasLoop = #None \<longrightarrow> (tortoise \<in> listFrom<#headCell> \<and> hare \<in> listFrom<tortoise>)"
+  where "Invariant \<equiv> PRED hasLoop = #None \<longrightarrow> ((#headCell, tortoise) \<in> #(rtrancl r) \<and> (tortoise, hare) \<in> #(rtrancl r))"
 
 definition Safety :: stpred where "Safety \<equiv> PRED Invariant \<and> hasLoop \<noteq> #(Some (\<not> loopExists))"
 
@@ -300,7 +296,7 @@ proof -
     case p: Step
     with s_Safety obtain h' where h': "(hare s, h') \<in> r" "(h', hare t) \<in> r" "(tortoise s, tortoise t) \<in> r"
       "(headCell, tortoise s) \<in> rtrancl r" "(tortoise s, hare s) \<in> rtrancl r"
-      by (cases "nextCell (hare s)", auto simp add: Step_def nextNextCell_def r_def Safety_def Invariant_def listFrom_def)
+      by (cases "nextCell (hare s)", auto simp add: Step_def nextNextCell_def r_def Safety_def Invariant_def)
 
     have "(tortoise t, h') \<in> rtrancl r"
     proof (cases "tortoise s = hare s")
@@ -347,7 +343,7 @@ proof -
     next
       case True 
       from rels have "(headCell, hare t) \<in> rtrancl r" "(hare t, hare t) \<in> trancl r" by (auto simp add: True)
-      hence loopExists by (auto simp add: loopExists_def listFrom_def)
+      hence loopExists by (auto simp add: loopExists_def)
       with True p rels notFinish show ?thesis by (intro FoundLoop, auto simp add: Step_def)
     qed
   next
@@ -357,12 +353,12 @@ proof -
       "(headCell, tortoise s) \<in> rtrancl r"
       "(headCell, hare s) \<in> rtrancl r"
       "(tortoise s, hare s) \<in> rtrancl r"
-      by (auto simp add: Safety_def Invariant_def listFrom_def Finish_def)
+      by (auto simp add: Safety_def Invariant_def Finish_def)
 
     show ?thesis
     proof (cases "nextCell (hare s)")
       case None
-      with rels1 have "\<not> loopExists" unfolding loopExists_no_end listFrom_def by auto
+      with rels1 have "\<not> loopExists" unfolding loopExists_no_end by auto
       with None p rels1 show ?thesis by (intro LastHare, auto simp add: Finish_def)
     next
       case (Some h')
@@ -375,7 +371,7 @@ proof -
         by auto
 
       from rels2 p Some have "\<not> loopExists"
-        unfolding loopExists_no_end listFrom_def by (auto simp add: Finish_def nextNextCell_def)
+        unfolding loopExists_no_end by (auto simp add: Finish_def nextNextCell_def)
 
       with rels1 rels2 p show ?thesis
         by (intro PenultimateHare, auto simp add: Finish_def nextNextCell_def Some)
@@ -388,7 +384,7 @@ proof invariant
   fix sigma
   assume sigma: "sigma \<Turnstile> Spec"
   thus "sigma \<Turnstile> Init Safety"
-    unfolding Invariant_def Safety_def Spec_def Initial_def listFrom_def r_def
+    unfolding Invariant_def Safety_def Spec_def Initial_def r_def
     by (auto simp add: Init_def)
 
   show "sigma \<Turnstile> stable Safety"
@@ -407,7 +403,7 @@ proof invariant
           by (auto simp add: Safety_def Invariant_def)
       next
         case (Step h') thus ?thesis
-          by (auto simp add: Safety_def Invariant_def listFrom_def)
+          by (auto simp add: Safety_def Invariant_def)
       next
         case (FoundLoop h') 
         hence "hasLoop t = Some True" "(hare t, hare t) \<in> trancl r"
@@ -416,7 +412,7 @@ proof invariant
       next
         case LastHare
         thus ?thesis by (auto simp add: Safety_def Invariant_def
-              loopExists_no_end listFrom_def)
+              loopExists_no_end)
       next
         case (PenultimateHare h')
         thus ?thesis by (auto simp add: Safety_def Invariant_def
@@ -602,7 +598,7 @@ proof -
   obtain t' where t': "(tortoise s, t') \<in> r"
   proof -
     from notFinished s_Safety
-    have t_h: "(tortoise s, hare s) \<in> rtrancl r" by (auto simp add: Safety_def Invariant_def listFrom_def)
+    have t_h: "(tortoise s, hare s) \<in> rtrancl r" by (auto simp add: Safety_def Invariant_def)
     from rtranclD [OF this] show thesis
     proof (elim disjE conjE)
       assume "tortoise s = hare s"
@@ -625,7 +621,7 @@ proof -
       moreover have "h'' = tortoise s"
       proof (intro tight_loop_eq loop)
         from s_Safety notFinished have "(tortoise s, hare s) \<in> rtrancl r"
-          by (auto simp add: Safety_def Invariant_def listFrom_def)
+          by (auto simp add: Safety_def Invariant_def)
         with h' h'' show "(tortoise s, h'') \<in> rtrancl r" by auto
       qed
       moreover assume "hasLoop u = hasLoop s"
@@ -652,8 +648,7 @@ proof -
 
     fix s t
     assume "s \<Turnstile> nextNextCell<hare> = #None \<and> hasLoop = #None"
-    hence s: "hasLoop s = None" "nextNextCell (hare s) = None"
-      by (auto simp add: listFrom_def)
+    hence s: "hasLoop s = None" "nextNextCell (hare s) = None" by auto
 
     assume s_Safety: "s \<Turnstile> Safety" and Next: "(s, t) \<Turnstile> [Next]_(tortoise, hare, hasLoop)"
 
@@ -685,51 +680,51 @@ lemma tortoise_visits_everywhere:
   assumes hd_c: "(headCell, c) \<in> rtrancl r"
   shows "\<turnstile> Spec \<longrightarrow> \<diamond>(hasLoop \<noteq> #None \<or> tortoise = #c)"
 proof -
-  from hd_c have "\<turnstile> Spec \<longrightarrow> \<diamond>(hasLoop \<noteq> #None \<or> #c \<in> listFrom<tortoise>)"
-    by (intro imp_eventually_init, auto simp add: Init_def Spec_def Initial_def listFrom_def)
+  from hd_c have "\<turnstile> Spec \<longrightarrow> \<diamond>(hasLoop \<noteq> #None \<or> (tortoise, #c) \<in> #(rtrancl r))"
+    by (intro imp_eventually_init, auto simp add: Init_def Spec_def Initial_def)
 
-  also have "\<turnstile> Spec \<longrightarrow> (hasLoop \<noteq> #None \<or> #c \<in> listFrom<tortoise> \<leadsto> hasLoop \<noteq> #None \<or> tortoise = #c)"
+  also have "\<turnstile> Spec \<longrightarrow> (hasLoop \<noteq> #None \<or> (tortoise, #c) \<in> #(rtrancl r) \<leadsto> hasLoop \<noteq> #None \<or> tortoise = #c)"
   proof (intro imp_disj_leadstoI)
     show "\<turnstile> Spec \<longrightarrow> (hasLoop \<noteq> #None \<leadsto> hasLoop \<noteq> #None \<or> tortoise = #c)" by (intro imp_imp_leadsto, auto)
-    show "\<turnstile> Spec \<longrightarrow> (#c \<in> listFrom<tortoise> \<leadsto> hasLoop \<noteq> #None \<or> tortoise = #c)"
+    show "\<turnstile> Spec \<longrightarrow> ((tortoise, #c) \<in> #(rtrancl r) \<leadsto> hasLoop \<noteq> #None \<or> tortoise = #c)"
     proof (rule imp_leadsto_triangle_excl [OF imp_leadsto_reflexive])
       have "\<turnstile> Spec
-      \<longrightarrow> (#c \<in> listFrom<tortoise> \<and> \<not> (hasLoop \<noteq> #None \<or> tortoise = #c)
-          \<leadsto> (\<exists>n. #c \<in> listFrom<tortoise> \<and> hasLoop = #None \<and> tortoise \<noteq> #c \<and> distanceBetween<tortoise, #c> = #n))"
+      \<longrightarrow> ((tortoise, #c) \<in> #(rtrancl r) \<and> \<not> (hasLoop \<noteq> #None \<or> tortoise = #c)
+          \<leadsto> (\<exists>n. (tortoise, #c) \<in> #(rtrancl r) \<and> hasLoop = #None \<and> tortoise \<noteq> #c \<and> distanceBetween<tortoise, #c> = #n))"
         by (intro imp_imp_leadsto, auto)
       also have "\<turnstile> Spec
-      \<longrightarrow> ((\<exists>n. #c \<in> listFrom<tortoise> \<and> hasLoop = #None \<and> tortoise \<noteq> #c \<and> distanceBetween<tortoise, #c> = #n)
+      \<longrightarrow> ((\<exists>n. (tortoise, #c) \<in> #(rtrancl r) \<and> hasLoop = #None \<and> tortoise \<noteq> #c \<and> distanceBetween<tortoise, #c> = #n)
           \<leadsto> hasLoop \<noteq> #None \<or> tortoise = #c)"
       proof (intro wf_imp_ex_leadsto [OF wf_less imp_leadsto_diamond])
         fix n
-        show "\<turnstile> Spec \<longrightarrow> (#c \<in> listFrom<tortoise> \<and> hasLoop = #None \<and> tortoise \<noteq> #c \<and> distanceBetween<tortoise, #c> = #n
-            \<leadsto> (#c \<in> listFrom<tortoise> \<and> hasLoop = #None \<and> tortoise \<noteq> #c \<and> distanceBetween<tortoise, #c> = #n \<and> nextNextCell<hare> \<noteq> #None)
+        show "\<turnstile> Spec \<longrightarrow> ((tortoise, #c) \<in> #(rtrancl r) \<and> hasLoop = #None \<and> tortoise \<noteq> #c \<and> distanceBetween<tortoise, #c> = #n
+            \<leadsto> ((tortoise, #c) \<in> #(rtrancl r) \<and> hasLoop = #None \<and> tortoise \<noteq> #c \<and> distanceBetween<tortoise, #c> = #n \<and> nextNextCell<hare> \<noteq> #None)
                \<or> nextNextCell<hare> = #None)"
           by (intro imp_imp_leadsto, auto)
 
         have "\<turnstile> Spec \<longrightarrow> (nextNextCell<hare> = #None \<leadsto> hasLoop \<noteq> #None)" by (intro hare_endgame)
         also have "\<turnstile> Spec \<longrightarrow> (hasLoop \<noteq> #None
           \<leadsto> (hasLoop \<noteq> #None \<or> tortoise = #c)
-              \<or> (\<exists>n'. #((n', n) \<in> {(n, n'). n < n'}) \<and> #c \<in> listFrom<tortoise>
+              \<or> (\<exists>n'. #((n', n) \<in> {(n, n'). n < n'}) \<and> (tortoise, #c) \<in> #(rtrancl r)
                         \<and> hasLoop = #None \<and> tortoise \<noteq> #c \<and> distanceBetween<tortoise, #c> = #n'))"
           by (intro imp_imp_leadsto, auto)
         finally show "\<turnstile> Spec \<longrightarrow> (nextNextCell<hare> = #None \<leadsto> (hasLoop \<noteq> #None \<or> tortoise = #c)
-                  \<or> (\<exists>n'. #((n', n) \<in> {(n, n'). n < n'}) \<and> #c \<in> listFrom<tortoise>
+                  \<or> (\<exists>n'. #((n', n) \<in> {(n, n'). n < n'}) \<and> (tortoise, #c) \<in> #(rtrancl r)
                         \<and> hasLoop = #None \<and> tortoise \<noteq> #c \<and> distanceBetween<tortoise, #c> = #n'))".
 
         show "\<turnstile> Spec
-        \<longrightarrow> (#c \<in> listFrom<tortoise> \<and> hasLoop = #None \<and> tortoise \<noteq> #c \<and> distanceBetween<tortoise, #c> = #n \<and> nextNextCell<hare> \<noteq> #None
+        \<longrightarrow> ((tortoise, #c) \<in> #(rtrancl r) \<and> hasLoop = #None \<and> tortoise \<noteq> #c \<and> distanceBetween<tortoise, #c> = #n \<and> nextNextCell<hare> \<noteq> #None
               \<leadsto> (hasLoop \<noteq> #None \<or> tortoise = #c)
-                  \<or> (\<exists>n'. #((n', n) \<in> {(n, n'). n < n'}) \<and> #c \<in> listFrom<tortoise>
+                  \<or> (\<exists>n'. #((n', n) \<in> {(n, n'). n < n'}) \<and> (tortoise, #c) \<in> #(rtrancl r)
                         \<and> hasLoop = #None \<and> tortoise \<noteq> #c \<and> distanceBetween<tortoise, #c> = #n'))"
         proof (intro WF1_Spec)
           show "\<turnstile> Spec \<longrightarrow> WF(Step)_(tortoise, hare, hasLoop)" by (auto simp add: Spec_def)
 
           fix s t
-          assume "s \<Turnstile> #c \<in> listFrom<tortoise> \<and> hasLoop = #None \<and> tortoise \<noteq> #c \<and> distanceBetween<tortoise, #c> = #n \<and> nextNextCell<hare> \<noteq> #None"
+          assume "s \<Turnstile> (tortoise, #c) \<in> #(rtrancl r) \<and> hasLoop = #None \<and> tortoise \<noteq> #c \<and> distanceBetween<tortoise, #c> = #n \<and> nextNextCell<hare> \<noteq> #None"
           then obtain h' h'' where s: "hasLoop s = None" "distanceBetween (tortoise s) c = n" "tortoise s \<noteq> c"
             and rels1: "(tortoise s, c) \<in> rtrancl r" "(hare s, h') \<in> r" "(h', h'') \<in> r"
-            by (cases "nextCell (hare s)", auto simp add: listFrom_def r_def nextNextCell_def)
+            by (cases "nextCell (hare s)", auto simp add: r_def nextNextCell_def)
 
           assume s_Safety: "s \<Turnstile> Safety" and Next: "(s, t) \<Turnstile> [Next]_(tortoise, hare, hasLoop)"
 
@@ -741,7 +736,7 @@ proof -
             assume is_Step: "(s,t) \<Turnstile> Step"
             from s_Safety Next this
             show "t \<Turnstile> (hasLoop \<noteq> #None \<or> tortoise = #c)
-                   \<or> (\<exists>n'. #((n', n) \<in> {(n, n'). n < n'}) \<and> #c \<in> listFrom<tortoise>
+                   \<or> (\<exists>n'. #((n', n) \<in> {(n, n'). n < n'}) \<and> (tortoise, #c) \<in> #(rtrancl r)
                           \<and> hasLoop = #None \<and> tortoise \<noteq> #c \<and> distanceBetween<tortoise, #c> = #n')"
             proof (cases rule: square_Next_cases)
               case (Step h1)
@@ -760,21 +755,21 @@ proof -
                   moreover from Step s rels1 have "distanceBetween (tortoise s) c = Suc (distanceBetween (tortoise t) c)"
                     by (intro distanceBetween_eq_Suc, auto)
                   with s have "distanceBetween (tortoise t) c < n" by auto
-                  ultimately show ?thesis by (auto simp add: listFrom_def)
+                  ultimately show ?thesis by auto
                 qed
               qed auto
-            qed (auto simp add: listFrom_def nextNextCell_def r_def)
+            qed (auto simp add: nextNextCell_def r_def)
           }
           with s_Safety Next s rels1 
-          show "t \<Turnstile> (#c \<in> listFrom<tortoise> \<and> hasLoop = #None \<and> tortoise \<noteq> #c 
+          show "t \<Turnstile> ((tortoise, #c) \<in> #(rtrancl r) \<and> hasLoop = #None \<and> tortoise \<noteq> #c 
                           \<and> distanceBetween<tortoise, #c> = #n \<and> nextNextCell<hare> \<noteq> #None)
                    \<or> (hasLoop \<noteq> #None \<or> tortoise = #c)
-                   \<or> (\<exists>n'. #((n', n) \<in> {(n, n'). n < n'}) \<and> #c \<in> listFrom<tortoise>
+                   \<or> (\<exists>n'. #((n', n) \<in> {(n, n'). n < n'}) \<and> (tortoise, #c) \<in> #(rtrancl r)
                           \<and> hasLoop = #None \<and> tortoise \<noteq> #c \<and> distanceBetween<tortoise, #c> = #n')"
-            by (cases rule: square_Next_cases, auto simp add: listFrom_def nextNextCell_def r_def)
+            by (cases rule: square_Next_cases, auto simp add: nextNextCell_def r_def)
         qed
       qed
-      finally show "\<turnstile> Spec \<longrightarrow> (#c \<in> listFrom<tortoise> \<and> \<not> (hasLoop \<noteq> #None \<or> tortoise = #c) \<leadsto> hasLoop \<noteq> #None \<or> tortoise = #c)".
+      finally show "\<turnstile> Spec \<longrightarrow> ((tortoise, #c) \<in> #(rtrancl r) \<and> \<not> (hasLoop \<noteq> #None \<or> tortoise = #c) \<leadsto> hasLoop \<noteq> #None \<or> tortoise = #c)".
     qed
   qed
 
@@ -786,8 +781,7 @@ proof (cases loopExists)
   case False
 
   with loopExists_no_end obtain cLast
-    where hd_cLast: "(headCell, cLast) \<in> rtrancl r" and cLast: "nextCell cLast = None"
-    by (auto simp add: listFrom_def)
+    where hd_cLast: "(headCell, cLast) \<in> rtrancl r" and cLast: "nextCell cLast = None" by auto
 
   have "\<turnstile> Spec \<longrightarrow> \<diamond>(hasLoop \<noteq> #None \<or> tortoise = #cLast)"
     by (intro tortoise_visits_everywhere hd_cLast)
@@ -800,7 +794,7 @@ proof (cases loopExists)
       fix s
       assume s: "s \<Turnstile> tortoise = #cLast" "s \<Turnstile> Safety" "s \<Turnstile> hasLoop = #None"
       hence "(cLast, hare s) \<in> rtrancl r"
-        by (auto simp add: Safety_def Invariant_def listFrom_def)
+        by (auto simp add: Safety_def Invariant_def)
       from rtranclD [OF this]
       have "hare s = cLast"
       proof (elim disjE conjE)
@@ -822,7 +816,7 @@ next
   have "\<turnstile> Spec \<longrightarrow> \<diamond>(hasLoop \<noteq> #None \<or> tortoise = #cLoop)"
     by (intro tortoise_visits_everywhere hd_cLoop)
   also have "\<turnstile> Spec \<longrightarrow> (hasLoop \<noteq> #None \<or> tortoise = #cLoop \<leadsto> hasLoop \<noteq> #None \<or> (hasLoop = #None \<and> (#cLoop, tortoise) \<in> #(trancl r)))"
-    using cLoop_ahead by (intro imp_INV_leadsto [OF safety imp_imp_leadsto], auto simp add: Safety_def Invariant_def listFrom_def)
+    using cLoop_ahead by (intro imp_INV_leadsto [OF safety imp_imp_leadsto], auto simp add: Safety_def Invariant_def)
   also have "\<turnstile> Spec \<longrightarrow> (hasLoop \<noteq> #None \<or> (hasLoop = #None \<and> (#cLoop, tortoise) \<in> #(trancl r)) \<leadsto> hasLoop \<noteq> #None)"
   proof (intro imp_disj_leadstoI imp_leadsto_reflexive)
     have "\<turnstile> Spec \<longrightarrow> (hasLoop = #None \<and> (#cLoop, tortoise) \<in> #(trancl r)
@@ -928,7 +922,7 @@ next
           case unchanged with s show ?thesis by (auto simp add: inductor)
         qed simp_all
 
-        from s_Safety s have hd_h: "(headCell, hare s) \<in> rtrancl r" by (auto simp add: Safety_def Invariant_def listFrom_def)
+        from s_Safety s have hd_h: "(headCell, hare s) \<in> rtrancl r" by (auto simp add: Safety_def Invariant_def)
         then obtain h' where h': "(hare s, h') \<in> r" by (metis tranclD cLoop_ahead)
         note hd_h also note h' finally obtain h'' where h'': "(h', h'') \<in> r" by (metis tranclD cLoop_ahead)
 
