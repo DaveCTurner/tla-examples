@@ -874,15 +874,21 @@ next
                 finally show "(hare s, tortoise s) \<in> rtrancl r" by simp
               qed
 
-              moreover from Step have "distanceBetween h' (tortoise t) \<le> distanceBetween h' (tortoise s) + distanceBetween (tortoise s) (tortoise t)"
-              proof (intro distanceBetween_triangle)
-                from Step have "(h', cLoop) \<in> trancl r" by (intro cLoop_ahead, simp)
-                also from s Step have "(cLoop, tortoise s) \<in> trancl r" by simp
-                finally show "(h', tortoise s) \<in> rtrancl r" by simp
-              qed simp
+              moreover have "distanceBetween h' (tortoise t) \<le> Suc (distanceBetween h' (tortoise s))"
+              proof -
+                from Step have "distanceBetween h' (tortoise t) \<le> distanceBetween h' (tortoise s)
+                                                                  + distanceBetween (tortoise s) (tortoise t)"
+                proof (intro distanceBetween_triangle)
+                  from Step have "(h', cLoop) \<in> trancl r" by (intro cLoop_ahead, simp)
+                  also from s Step have "(cLoop, tortoise s) \<in> trancl r" by simp
+                  finally show "(h', tortoise s) \<in> rtrancl r" by simp
+                qed simp
 
-              moreover from Step have "distanceBetween (tortoise s) (tortoise t) \<le> 1"
-                by (intro distanceBetween_le_1)
+                moreover from Step have "distanceBetween (tortoise s) (tortoise t) \<le> 1"
+                  by (intro distanceBetween_le_1)
+
+                ultimately show ?thesis by auto
+              qed
 
               moreover have "distanceBetween h' (tortoise t) = Suc (distanceBetween (hare t) (tortoise t))"
               proof (intro distanceBetween_eq_Suc Step notI)
