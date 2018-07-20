@@ -171,10 +171,22 @@ proof (intro tempI temp_impI)
 qed
 
 lemma imp_disj_leadstoI:
-  assumes 1: "\<turnstile> S \<longrightarrow> (A \<leadsto> C)"
-  assumes 2: "\<turnstile> S \<longrightarrow> (B \<leadsto> C)"
+  assumes "\<turnstile> S \<longrightarrow> (A \<leadsto> C)"
+  assumes "\<turnstile> S \<longrightarrow> (B \<leadsto> C)"
   shows "\<turnstile> S \<longrightarrow> (A \<or> B \<leadsto> C)"
   by (intro imp_leadsto_diamond [OF imp_leadsto_reflexive] assms)
+
+lemma imp_disj_excl_leadstoI:
+  assumes "\<turnstile> S \<longrightarrow> (A \<leadsto> C)"
+  assumes "\<turnstile> S \<longrightarrow> ((\<not>A \<and> B) \<leadsto> C)"
+  shows "\<turnstile> S \<longrightarrow> (A \<or> B \<leadsto> C)"
+proof -
+  have "\<turnstile> S \<longrightarrow> (A \<or> B \<leadsto> (A \<or> (\<not>A \<and> B)))"
+    by (intro imp_imp_leadsto, auto)
+  also have "\<turnstile> S \<longrightarrow> ((A \<or> (\<not>A \<and> B)) \<leadsto> C)"
+    using assms by (intro imp_disj_leadstoI)
+  finally show ?thesis .
+qed
 
 lemma temp_conj_eq_imp:
   assumes "\<turnstile> P \<longrightarrow> (Q = R)"
@@ -258,10 +270,15 @@ proof -
 qed
 
 lemma imp_infinitely_often_implies_eventually:
-  fixes P :: stpred
   assumes "\<turnstile> S \<longrightarrow> \<box>\<diamond>P"
   shows "\<turnstile> S \<longrightarrow> \<diamond>P"
   using assms reflT temp_imp_trans by blast
+
+lemma imp_eventually_forever_implies_infinitely_often:
+  fixes P :: stpred
+  assumes "\<turnstile> S \<longrightarrow> \<diamond>\<box>P"
+  shows "\<turnstile> S \<longrightarrow> \<box>\<diamond>P"
+  using assms DBImplBD temp_imp_trans by blast
 
 lemma imp_leadsto_add_precondition:
   assumes "\<turnstile> S \<longrightarrow> \<box>R"
@@ -395,5 +412,11 @@ lemma imp_box_before_afterI:
   assumes "\<turnstile> S \<longrightarrow> \<box>P"
   shows "\<turnstile> S \<longrightarrow> \<box>($P \<and> P$)"
   using assms using BoxPrime temp_imp_trans by blast
+
+lemma imp_dmd_conj_invariant:
+  assumes "\<turnstile> S \<longrightarrow> \<box>P"
+  assumes "\<turnstile> S \<longrightarrow> \<diamond>Q"
+  shows "\<turnstile> S \<longrightarrow> \<diamond>(P \<and> Q)"
+  using assms BoxDmd_simple by fastforce
 
 end
