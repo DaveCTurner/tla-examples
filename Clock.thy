@@ -12,19 +12,15 @@ lemma next_hour_induct [case_names base step, consumes 1]:
   shows "P m"
   using type
 proof (induct m)
-  case 0 thus ?case by simp
-next
   case (Suc m)
   from `Suc m \<in> {1..12}` have "m = 0 \<or> (m \<in> {1..12} \<and> 1 \<le> m \<and> m < 12)" by auto
-  thus ?case
+  with base show ?case
   proof (elim disjE conjE)
-    assume "m = 0" with base show ?case by simp
-  next
     assume "m \<in> {1..12}" with Suc have "P m" "1 \<le> m" "m < 12" by simp_all
     hence "P (next_hour m)" by (intro step, auto)
     with `m < 12` show ?case by (simp add: next_hour_def)
-  qed
-qed
+  qed simp
+qed simp
 
 locale HourClock =
   fixes hr :: "nat stfun"
@@ -145,8 +141,14 @@ lemma HMCnxt_enabled[simp]: "PRED Enabled HMCnxt = PRED mn \<le> #59"
   by (meson nat_less_le)
 
 lemma HMC_safety: "\<turnstile> HMC \<longrightarrow> \<box> (hr \<in> #{1..12} \<and> mn \<in> #{0..59})"
-  unfolding HMC_def HMCini_def HCini_def HMCnxt_eq next_hour_def
-  by (invariant, auto simp add: square_def Init_def)
+proof -
+  have "\<turnstile> HMC \<longrightarrow> \<box>HMCini"
+  proof invariant
+    fix sigma assume "sigma \<Turnstile> HMC" thus "sigma \<Turnstile> stable HMCini" and "sigma \<Turnstile> Init HMCini"
+      by (intro Stable [where A = "ACT [HMCnxt]_(hr, mn)"], auto simp add: HMC_def square_def HMCnxt_def Hr_def HCnxt_def next_hour_def Mn_def HMCini_def Init_simps HCini_def)
+  qed
+  thus ?thesis by (simp add: HMCini_def HCini_def)
+qed
 
 definition timeIs :: "nat \<times> nat \<Rightarrow> stpred" where "timeIs t \<equiv> PRED (hr, mn) = #t"
 
