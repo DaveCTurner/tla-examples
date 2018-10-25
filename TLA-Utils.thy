@@ -413,10 +413,36 @@ lemma imp_box_before_afterI:
   shows "\<turnstile> S \<longrightarrow> \<box>($P \<and> P$)"
   using assms using BoxPrime temp_imp_trans by blast
 
+lemma imp_box_afterI:
+  assumes "\<turnstile> S \<longrightarrow> \<box>P"
+  shows "\<turnstile> S \<longrightarrow> \<box>(P$)"
+proof -
+  from assms have "\<turnstile> S \<longrightarrow> \<box>($P \<and> P$)" by (intro imp_box_before_afterI)
+  also have "\<turnstile> \<box>($P \<and> P$) \<longrightarrow> \<box>(P$)" by auto
+  finally show ?thesis .
+qed
+
 lemma imp_dmd_conj_invariant:
   assumes "\<turnstile> S \<longrightarrow> \<box>P"
   assumes "\<turnstile> S \<longrightarrow> \<diamond>Q"
   shows "\<turnstile> S \<longrightarrow> \<diamond>(P \<and> Q)"
   using assms BoxDmd_simple by fastforce
+
+lemma invariantI:
+  fixes A :: action
+  assumes "\<turnstile> S \<longrightarrow> Init P"
+  assumes "\<turnstile> S \<longrightarrow> \<box>A"
+  assumes "\<And>s t. \<lbrakk> s \<Turnstile> P; (s,t) \<Turnstile> A \<rbrakk>  \<Longrightarrow> t \<Turnstile> P"
+  shows "\<turnstile> S \<longrightarrow> \<box>P"
+proof invariant
+  fix sigma assume sigma: "sigma \<Turnstile> S"
+  with assms show "sigma \<Turnstile> Init P" by auto
+  show "sigma \<Turnstile> stable P"
+  proof (intro Stable actionI temp_impI)
+    from sigma assms show "sigma \<Turnstile> \<box>A" by auto
+    fix s t assume "(s,t) \<Turnstile> $P \<and> A" with assms show "(s,t) \<Turnstile> P$" by auto
+  qed
+qed
+
 
 end

@@ -150,7 +150,7 @@ proof (intro unstable_implies_infinitely_often)
               by (auto simp add: Allocate_def updated_def add_def P_def modifyAt_def)
           next
             assume "(s,t) \<Turnstile> Return c' S"
-            hence [simp]: "\<And>c''. alloc t c'' = (if c' = c'' then del S else id) (alloc s c'')"
+            hence [simp]: "alloc t c'' = (if c' = c'' then del S else id) (alloc s c'')" for c''
               by (simp add: updated_def Return_def)
             from r s show ?thesis
               by (auto simp add: available_def del_def Safety_def MutualExclusion_def P_def Q_def)
@@ -162,7 +162,7 @@ proof (intro unstable_implies_infinitely_often)
       proof (intro actionI temp_impI, elim temp_conjE)
         fix s t
         assume "(s,t) \<Turnstile> <E>_(unsat, alloc)"
-        hence [simp]: "\<And>c'. alloc t c' = (if c = c' then del (alloc s c) else id) (alloc s c')"
+        hence [simp]: "alloc t c' = (if c = c' then del (alloc s c) else id) (alloc s c')" for c'
           by (auto simp add: angle_def Return_def E_def updated_def)
 
         assume "(s,t) \<Turnstile> Saf" hence mutex: "s \<Turnstile> MutualExclusion" by (simp add: Saf_def Safety_def)
@@ -181,7 +181,7 @@ proof (intro unstable_implies_infinitely_often)
           "alloc u = (\<lambda>a'. (if c = a' then del (alloc s c) else id) (alloc s a'))"
           and u: "unsat u = unsat s" by auto
 
-        hence [simp]: "\<And>c'. alloc u c' = (if c = c' then del (alloc s c) else id) (alloc s c')" by auto
+        hence [simp]: "alloc u c' = (if c = c' then del (alloc s c) else id) (alloc s c')" for c' by auto
 
         from r have "alloc u c \<noteq> alloc s c" by (auto simp add: del_def)
         hence ne: "alloc u \<noteq> alloc s" by force

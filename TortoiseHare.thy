@@ -134,10 +134,8 @@ proof (cases loopExists)
   from wf_finite_psubset finite_S hd_c S_def have "\<exists> c' \<in> S. nextCell c' = None"
   proof (induct S arbitrary: c rule: wf_induct_rule)
     case (less S)
-    show ?case
+    thus ?case
     proof (cases "nextCell c")
-      case None with less show ?thesis by auto
-    next
       case (Some c')
       hence cc': "(c, c') \<in> r" by (auto simp add: r_def)
 
@@ -167,7 +165,7 @@ proof (cases loopExists)
         qed
       qed (simp add: S'_def)
       with S'_subset_S show ?thesis by auto
-    qed
+    qed auto
   qed
   with False show ?thesis by (auto simp add: S_def c_def)
 next
@@ -185,8 +183,6 @@ next
     ultimately show False by (simp add: r_def)
   qed
 qed
-
-
 
 end
 
@@ -575,19 +571,16 @@ proof -
   from nextNext obtain h' h'' where h': "(hare s, h') \<in> r" and h'': "(h', h'') \<in> r"
     by (cases "nextCell (hare s)", auto simp add: nextNextCell_def r_def)
 
-  obtain t' where t': "(tortoise s, t') \<in> r"
-  proof -
-    from notFinished s_Safety
-    have t_h: "(tortoise s, hare s) \<in> rtrancl r" by (auto simp add: Safety_def Invariant_def)
-    from rtranclD [OF this] show thesis
-    proof (elim disjE conjE)
-      assume "tortoise s = hare s"
-      with h' show ?thesis by (intro that, auto)
-    next
-      assume "(tortoise s, hare s) \<in> trancl r"
-      from tranclD [OF this] that
-      show ?thesis by auto
-    qed
+  from notFinished s_Safety
+  have t_h: "(tortoise s, hare s) \<in> rtrancl r" by (auto simp add: Safety_def Invariant_def)
+  from rtranclD [OF this] obtain t' where t': "(tortoise s, t') \<in> r"
+  proof (elim disjE conjE)
+    assume "tortoise s = hare s"
+    with h' show ?thesis by (intro that, auto)
+  next
+    assume "(tortoise s, hare s) \<in> trancl r"
+    from tranclD [OF this] that
+    show ?thesis by auto
   qed
 
   show "s \<Turnstile> Enabled (<Step>_(tortoise, hare, hasLoop))"
@@ -711,35 +704,36 @@ proof -
           from rels1
           show "s \<Turnstile> Enabled (<Step>_(tortoise, hare, hasLoop))"
             by (intro Enabled_StepI s_Safety s, auto simp add: nextNextCell_def r_def)
-        
-          {
-            assume is_Step: "(s,t) \<Turnstile> Step"
-            from s_Safety Next this
-            show "t \<Turnstile> (hasLoop \<noteq> #None \<or> tortoise = #c)
+
+
+          from s_Safety Next
+          show "t \<Turnstile> (hasLoop \<noteq> #None \<or> tortoise = #c)
                    \<or> (\<exists>n'. #((n', n) \<in> {(n, n'). n < n'}) \<and> (tortoise, #c) \<in> #(rtrancl r)
                           \<and> hasLoop = #None \<and> tortoise \<noteq> #c \<and> distanceBetween<tortoise, #c> = #n')"
-            proof (cases rule: square_Next_cases)
-              case (Step h1)
-              from s rels1 distanceBetween_0_eq show ?thesis
-              proof (cases n)
-                case (Suc n')
-                show ?thesis
-                proof (cases "tortoise t = c")
-                  case True thus ?thesis by simp
-                next
-                  case False
-                  moreover from s rels1
-                  have "(tortoise s, c) \<in> trancl r" by (metis rtranclD)
-                  with Step have "(tortoise t, c) \<in> rtrancl r" by (intro next_step, auto)
-                  moreover from Step have "hasLoop t = None" by simp
-                  moreover from Step s rels1 have "distanceBetween (tortoise s) c = Suc (distanceBetween (tortoise t) c)"
-                    by (intro distanceBetween_eq_Suc, auto)
-                  with s have "distanceBetween (tortoise t) c < n" by auto
-                  ultimately show ?thesis by auto
-                qed
-              qed auto
-            qed (auto simp add: nextNextCell_def r_def)
-          }
+            if is_Step: "(s,t) \<Turnstile> Step"
+            using is_Step
+          proof (cases rule: square_Next_cases)
+            case (Step h1)
+            from s rels1 distanceBetween_0_eq show ?thesis
+            proof (cases n)
+              case (Suc n')
+              show ?thesis
+              proof (cases "tortoise t = c")
+                case True thus ?thesis by simp
+              next
+                case False
+                moreover from s rels1
+                have "(tortoise s, c) \<in> trancl r" by (metis rtranclD)
+                with Step have "(tortoise t, c) \<in> rtrancl r" by (intro next_step, auto)
+                moreover from Step have "hasLoop t = None" by simp
+                moreover from Step s rels1 have "distanceBetween (tortoise s) c = Suc (distanceBetween (tortoise t) c)"
+                  by (intro distanceBetween_eq_Suc, auto)
+                with s have "distanceBetween (tortoise t) c < n" by auto
+                ultimately show ?thesis by auto
+              qed
+            qed auto
+          qed (auto simp add: nextNextCell_def r_def)
+
           with s_Safety Next s rels1 
           show "t \<Turnstile> ((tortoise, #c) \<in> #(rtrancl r) \<and> hasLoop = #None \<and> tortoise \<noteq> #c 
                           \<and> distanceBetween<tortoise, #c> = #n \<and> nextNextCell<hare> \<noteq> #None)
@@ -824,76 +818,71 @@ next
           by (simp_all add: inductor)
 
         assume s_Safety: "s \<Turnstile> Safety" and Next: "(s, t) \<Turnstile> [Next]_(tortoise, hare, hasLoop)"
-        {
-          assume Step: "(s,t) \<Turnstile> Step"
-
-          from s_Safety Next Step
-          show "t \<Turnstile> hasLoop \<noteq> #None \<or> (\<exists>inductor'. #((inductor', inductor) \<in> {(False, True)} <*lex*> {(i, j). i < j}) 
+        thus Step_lemma: "t \<Turnstile> hasLoop \<noteq> #None \<or> (\<exists>inductor'. #((inductor', inductor) \<in> {(False, True)} <*lex*> {(i, j). i < j}) 
                                                               \<and> hasLoop = #None \<and> (#cLoop, tortoise) \<in> #(trancl r)
                                                               \<and> #inductor' = (tortoise = hare, distanceBetween<hare, tortoise>))"
-          proof (cases rule: square_Next_cases)
-            case (Step h')
+          if Step: "(s,t) \<Turnstile> Step"
+          using Step
+        proof (cases rule: square_Next_cases)
+          case (Step h')
+          show ?thesis
+          proof (cases "hare s = tortoise s")
+            case True
+            with Step s show ?thesis by (simp add: inductor, intro exI [where x = False], auto)
+          next
+            case False
 
-            show ?thesis
-            proof (cases "hare s = tortoise s")
-              case True
-              with Step s show ?thesis by (simp add: inductor, intro exI [where x = False], auto)
-            next
-              case False
+            have "distanceBetween (hare s) (tortoise s) = Suc (distanceBetween h' (tortoise s))"
+            proof (intro distanceBetween_eq_Suc False Step)
+              from Step have "(hare s, cLoop) \<in> trancl r" by (intro cLoop_ahead)
+              also from s have "(cLoop, tortoise s) \<in> trancl r" by simp
+              finally show "(hare s, tortoise s) \<in> rtrancl r" by simp
+            qed
 
-              have "distanceBetween (hare s) (tortoise s) = Suc (distanceBetween h' (tortoise s))"
-              proof (intro distanceBetween_eq_Suc False Step)
+            moreover have "distanceBetween h' (tortoise t) \<le> Suc (distanceBetween h' (tortoise s))"
+            proof -
+              from Step have "distanceBetween h' (tortoise t) \<le> distanceBetween h' (tortoise s)
+                                                                  + distanceBetween (tortoise s) (tortoise t)"
+              proof (intro distanceBetween_triangle)
+                from Step have "(h', cLoop) \<in> trancl r" by (intro cLoop_ahead, simp)
+                also from s Step have "(cLoop, tortoise s) \<in> trancl r" by simp
+                finally show "(h', tortoise s) \<in> rtrancl r" by simp
+              qed simp
+
+              moreover from Step have "distanceBetween (tortoise s) (tortoise t) \<le> 1"
+                by (intro distanceBetween_le_1)
+
+              ultimately show ?thesis by auto
+            qed
+
+            moreover have "distanceBetween h' (tortoise t) = Suc (distanceBetween (hare t) (tortoise t))"
+            proof (intro distanceBetween_eq_Suc Step notI)
+              from Step have "(h', cLoop) \<in> trancl r" by (intro cLoop_ahead, simp)
+              also from s Step have "(cLoop, tortoise t) \<in> trancl r" by simp
+              finally show "(h', tortoise t) \<in> rtrancl r" by simp
+
+              assume eq: "h' = tortoise t"
+              have "hare s = tortoise s"
+              proof (intro loop_unique_previous)
+                from Step show "(hare s, h') \<in> r" "(tortoise s, h') \<in> r" by (auto simp add: eq)
                 from Step have "(hare s, cLoop) \<in> trancl r" by (intro cLoop_ahead)
                 also from s have "(cLoop, tortoise s) \<in> trancl r" by simp
-                finally show "(hare s, tortoise s) \<in> rtrancl r" by simp
+                also from Step have "(tortoise s, hare s) \<in> rtrancl r" by simp
+                finally show "(hare s, hare s) \<in> trancl r".
+
+                from Step have "(tortoise s, cLoop) \<in> trancl r" by (intro cLoop_ahead)
+                also from s have "(cLoop, tortoise s) \<in> trancl r" by simp
+                finally show "(tortoise s, tortoise s) \<in> trancl r".
               qed
-
-              moreover have "distanceBetween h' (tortoise t) \<le> Suc (distanceBetween h' (tortoise s))"
-              proof -
-                from Step have "distanceBetween h' (tortoise t) \<le> distanceBetween h' (tortoise s)
-                                                                  + distanceBetween (tortoise s) (tortoise t)"
-                proof (intro distanceBetween_triangle)
-                  from Step have "(h', cLoop) \<in> trancl r" by (intro cLoop_ahead, simp)
-                  also from s Step have "(cLoop, tortoise s) \<in> trancl r" by simp
-                  finally show "(h', tortoise s) \<in> rtrancl r" by simp
-                qed simp
-
-                moreover from Step have "distanceBetween (tortoise s) (tortoise t) \<le> 1"
-                  by (intro distanceBetween_le_1)
-
-                ultimately show ?thesis by auto
-              qed
-
-              moreover have "distanceBetween h' (tortoise t) = Suc (distanceBetween (hare t) (tortoise t))"
-              proof (intro distanceBetween_eq_Suc Step notI)
-                from Step have "(h', cLoop) \<in> trancl r" by (intro cLoop_ahead, simp)
-                also from s Step have "(cLoop, tortoise t) \<in> trancl r" by simp
-                finally show "(h', tortoise t) \<in> rtrancl r" by simp
-
-                assume eq: "h' = tortoise t"
-                have "hare s = tortoise s"
-                proof (intro loop_unique_previous)
-                  from Step show "(hare s, h') \<in> r" "(tortoise s, h') \<in> r" by (auto simp add: eq)
-                  from Step have "(hare s, cLoop) \<in> trancl r" by (intro cLoop_ahead)
-                  also from s have "(cLoop, tortoise s) \<in> trancl r" by simp
-                  also from Step have "(tortoise s, hare s) \<in> rtrancl r" by simp
-                  finally show "(hare s, hare s) \<in> trancl r".
-
-                  from Step have "(tortoise s, cLoop) \<in> trancl r" by (intro cLoop_ahead)
-                  also from s have "(cLoop, tortoise s) \<in> trancl r" by simp
-                  finally show "(tortoise s, tortoise s) \<in> trancl r".
-                qed
-                with False show False by simp
-              qed
-
-              moreover from s Step have "(cLoop, tortoise t) \<in> trancl r" by auto
-              ultimately show ?thesis using Step False by (simp add: inductor s, auto)
+              with False show False by simp
             qed
-          qed simp_all
-        }
-        note Step_lemma = this
 
-        from s_Safety Next Step_lemma True
+            moreover from s Step have "(cLoop, tortoise t) \<in> trancl r" by auto
+            ultimately show ?thesis using Step False by (simp add: inductor s, auto)
+          qed
+        qed simp_all
+
+        with s_Safety Next True
         show "t \<Turnstile> hasLoop = #None \<and> (#cLoop, tortoise) \<in> #(trancl r) \<and> #inductor = (tortoise = hare, distanceBetween<hare, tortoise>) \<or>
                                           hasLoop \<noteq> #None \<or>
                                           (\<exists>inductor'. #((inductor', inductor) \<in> {(False, True)} <*lex*> {(i, j). i < j}) \<and>

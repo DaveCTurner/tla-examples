@@ -199,16 +199,14 @@ proof -
            apply (metis add_simp modifyAt_eq_simp)
           by (metis add_simp modifyAt_eq_simp modifyAt_ne_simp)
 
-        have simp2: "\<And>c cs. set (takeWhile (op \<noteq> c) (filter (op \<noteq> c) cs)) = {x \<in> set cs. c \<noteq> x}"
+        have simp2: "set (takeWhile (op \<noteq> c) (filter (op \<noteq> c) cs)) = {x \<in> set cs. c \<noteq> x}" for c :: Client and cs
           by (metis filter_set member_filter set_filter takeWhile_eq_all_conv)
-        have simp3: "\<And>c c' cs. c' \<noteq> c \<Longrightarrow> set (takeWhile (op \<noteq> c') (filter (op \<noteq> c) cs)) = set (takeWhile (op \<noteq> c') cs) - {c}"
-        proof -
-          fix c c' cs show "c' \<noteq> c \<Longrightarrow> ?thesis c c' cs" by (induct cs, auto)
-        qed
+        have simp3: "set (takeWhile (op \<noteq> c') (filter (op \<noteq> c) cs)) = set (takeWhile (op \<noteq> c') cs) - {c}"
+          if p: "c' \<noteq> c" for c c' :: Client and cs using p by (induct cs, auto)
 
         define cs where "cs \<equiv> sched s"
-
-        show "\<And>c'. higherPriorityClients c' t = (if S = unsat s c then if c' = c then set (sched t) else higherPriorityClients c' s - {c} else higherPriorityClients c' s)"
+        fix c'
+        show "higherPriorityClients c' t = (if S = unsat s c then if c' = c then set (sched t) else higherPriorityClients c' s - {c} else higherPriorityClients c' s)"
           unfolding higherPriorityClients_def `sched t = (if S = unsat s c then filter (op \<noteq> c) (sched s) else sched s)`
           by (fold cs_def, induct cs, auto simp add: simp2 simp3)
       qed (auto simp add: Allocate_def updated_def)
@@ -269,7 +267,7 @@ proof invariant
         show ?thesis
         proof (intro SafetyI)
           from MutualExclusion
-          show "\<And>c1 c2. c1 \<noteq> c2 \<Longrightarrow> alloc t c1 \<inter> alloc t c2 = {}"
+          show "c1 \<noteq> c2 \<Longrightarrow> alloc t c1 \<inter> alloc t c2 = {}" for c1 c2
             by (simp add: MutualExclusion_def)
 
           fix c1 c2
@@ -290,7 +288,7 @@ proof invariant
         show ?thesis
         proof (intro SafetyI)
           from MutualExclusion
-          show "\<And>c1 c2. c1 \<noteq> c2 \<Longrightarrow> alloc t c1 \<inter> alloc t c2 = {}"
+          show "c1 \<noteq> c2 \<Longrightarrow> alloc t c1 \<inter> alloc t c2 = {}" for c1 c2
             by (auto simp add: MutualExclusion_def)
 
           show "\<And>c. c \<in> pool t \<Longrightarrow> unsat t c \<noteq> {}"
@@ -320,36 +318,28 @@ proof invariant
       next
         case [simp]: (Allocate c S)
 
-          from AllocatorInvariant
+        from AllocatorInvariant
         show ?thesis
         proof (intro SafetyI)
-          have "\<And>c'. c' \<noteq> c \<Longrightarrow> alloc t c \<inter> alloc t c' = {}"
-          proof -
-            fix c' assume ne: "c' \<noteq> c"
-            with MutualExclusion `S \<subseteq> available s` show "?thesis c'"
-              by (auto simp add: available_def MutualExclusion_def, blast+)
-          qed
-          with MutualExclusion show "\<And>c1 c2. c1 \<noteq> c2 \<Longrightarrow> alloc t c1 \<inter> alloc t c2 = {}"
+          have "alloc t c \<inter> alloc t c' = {}" if ne: "c' \<noteq> c" for c'
+            using ne MutualExclusion `S \<subseteq> available s`
+            by (auto simp add: available_def MutualExclusion_def, blast+)
+
+          with MutualExclusion show "c1 \<noteq> c2 \<Longrightarrow> alloc t c1 \<inter> alloc t c2 = {}" for c1 c2
             by (auto simp add: MutualExclusion_def modifyAt_def)
 
           from AllocatorInvariant
-          show "\<And>c. finite (unsat t c)" "\<And>c. finite (alloc t c)"
+          show "finite (unsat t c')" "finite (alloc t c')" for c'
              apply (auto simp add: AllocatorInvariant_def modifyAt_def del_def add_def)
             by (meson `S \<subseteq> unsat s c` infinite_super)
 
           from AllocatorInvariant have "distinct (sched s)" by (simp add: AllocatorInvariant_def)
           thus "distinct (sched t)" by auto
 
-          show "\<And>c. alloc t c \<inter> unsat t c = {}"
-            unfolding Allocate
-          proof -
-            fix c'
-            from AllocatorInvariant have "alloc s c' \<inter> unsat s c' = {}"
-              by (auto simp add: AllocatorInvariant_def)
-            thus "modifyAt (alloc s) c (add S) c' \<inter> modifyAt (unsat s) c (del S) c' = {}"
-              by (cases "c = c'", auto)
-          qed
-
+          fix c'
+          from AllocatorInvariant have "alloc s c' \<inter> unsat s c' = {}"
+            by (auto simp add: AllocatorInvariant_def)
+          thus "alloc t c' \<inter> unsat t c' = {}" unfolding Allocate by (cases "c = c'", auto)
         next
           fix c'
           assume c': "c' \<in> set (sched t)"
@@ -383,21 +373,19 @@ proof invariant
           fix c1 c2
           assume c1: "c1 \<in> set (sched t)" and c2: "c2 \<in> higherPriorityClients c1 t"
 
-          {
-            fix r
-            assume r1: "r \<in> alloc t c1" and r2t: "r \<in> unsat t c2"
-            {
+          have False if r1: "r \<in> alloc t c1" and r2t: "r \<in> unsat t c2" for r
+          proof -
+            have hyp: False if ps: "c2 \<in> higherPriorityClients c1 s" "r \<in> alloc s c1"
+            proof -
               from AllocatorInvariant
               have "c1 \<in> set (sched s) \<Longrightarrow> c2 \<in> higherPriorityClients c1 s \<Longrightarrow> alloc s c1 \<inter> unsat s c2 = {}"
                 unfolding AllocatorInvariant_def by auto
               moreover from c1 have "c1 \<in> set (sched s)" by (cases "S = unsat s c", auto)
-              moreover assume "c2 \<in> higherPriorityClients c1 s" "r \<in> alloc s c1"
               moreover from r2t have "r \<in> unsat s c2" by (cases "c2 = c", auto simp add: modifyAt_def)
-              ultimately have False by auto
-            }
-            note hyp = this
+              ultimately show False using ps by auto
+            qed
 
-            have False
+            show False
             proof (cases "S = unsat s c")
               case True
               show False
@@ -445,7 +433,7 @@ proof invariant
                 with r1 hyp show False by simp
               qed
             qed
-          }
+          qed
           thus "alloc t c1 \<inter> unsat t c2 = {}" by auto
         qed (auto simp add: AllocatorInvariant_def modifyAt_def)
       next
@@ -455,12 +443,12 @@ proof invariant
         show ?thesis
         proof (intro SafetyI)
           from MutualExclusion
-          show "\<And>c1 c2. c1 \<noteq> c2 \<Longrightarrow> alloc t c1 \<inter> alloc t c2 = {}"
+          show "c1 \<noteq> c2 \<Longrightarrow> alloc t c1 \<inter> alloc t c2 = {}" for c1 c2
             apply (auto simp add: MutualExclusion_def modifyAt_def)
             by blast+
 
           from AllocatorInvariant
-          show "\<And>c1 c2. c1 \<in> set (sched t) \<Longrightarrow> c2 \<in> higherPriorityClients c1 t \<Longrightarrow> alloc t c1 \<inter> unsat t c2 = {}"
+          show "c1 \<in> set (sched t) \<Longrightarrow> c2 \<in> higherPriorityClients c1 t \<Longrightarrow> alloc t c1 \<inter> unsat t c2 = {}" for c1 c2
             by (auto simp add: modifyAt_def AllocatorInvariant_def, blast)
         qed (auto simp add: AllocatorInvariant_def modifyAt_def del_def)
       qed

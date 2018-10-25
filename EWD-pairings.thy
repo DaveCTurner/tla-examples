@@ -727,12 +727,7 @@ proof (intro finite_acyclic_wf)
   have "valid_length_transitions \<subseteq> valid_total_lengths \<times> valid_total_lengths" by (auto simp add: valid_length_transitions_def)
   thus "finite valid_length_transitions" using finite_subset finite_valid_total_lengths by blast
 
-  have "\<And>x y::real. (x,y) \<in> {(x, y). x < y}\<^sup>+ \<Longrightarrow> x < y"
-  proof -
-    fix x y :: real
-    assume "(x,y) \<in> {(x, y). x < y}\<^sup>+"
-    thus "x < y" by (induct y rule: trancl_induct, simp_all)
-  qed
+  have "x < y" if p: "(x,y) \<in> {(x, y). x < y}\<^sup>+" for x y :: real using p by (induct y rule: trancl_induct, simp_all)
   hence "acyclic {(x, y). x < (y::real)}" by (intro acyclicI, auto)
 
   moreover have "valid_length_transitions \<subseteq> {(x, y). x < y}" by (auto simp add: valid_length_transitions_def)
