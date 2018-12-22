@@ -1,5 +1,5 @@
 theory "EWD-pairings"
-  imports Main Real NthRoot "./TLA-Utils" "HOL-Analysis.Product_Vector"
+  imports Main HOL.Real HOL.NthRoot "./TLA-Utils" "HOL-Analysis.Product_Vector"
 begin
 
 type_synonym point = "real \<times> real"
@@ -743,13 +743,13 @@ locale Uncrossing = UncrossingSetup +
   fixes blueFromRed :: "(point \<Rightarrow> point) stfun"
   assumes bv: "basevars blueFromRed"
   fixes blueFromRed_range :: stpred
-  defines "blueFromRed_range \<equiv> PRED ((op `)<blueFromRed,#redPoints> = #bluePoints)" 
+  defines "blueFromRed_range \<equiv> PRED ((`)<blueFromRed,#redPoints> = #bluePoints)" 
   fixes step :: action
   defines "step \<equiv> ACT (\<exists> r0 r1 b0 b1. #r0 \<in> #redPoints \<and> #r1 \<in> #redPoints \<and> #r0 \<noteq> #r1
             \<and> #b0 = id<$blueFromRed,#r0>
             \<and> #b1 = id<$blueFromRed,#r1>
             \<and> #(segments_cross r0 b0 r1 b1)
-            \<and> blueFromRed$ = (op \<circ>)<$blueFromRed,#(swapPoints r0 r1)>)"
+            \<and> blueFromRed$ = (\<circ>)<$blueFromRed,#(swapPoints r0 r1)>)"
   fixes Spec :: temporal
   defines "Spec \<equiv> TEMP (Init blueFromRed_range \<and> \<box>[step]_blueFromRed \<and> WF(step)_blueFromRed)"
 

@@ -360,10 +360,4 @@ qed
 
 end
 
-locale ClockHiding
-  = HourClock hr
-  + HourMinuteClock hr mn
-
-lemma "\<turnstile> HourClock.HC hr \<longrightarrow> (\<exists>\<exists> mn. HourMinuteClock.HMC hr mn)"
-
 end

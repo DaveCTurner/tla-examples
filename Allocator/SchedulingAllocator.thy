@@ -14,7 +14,7 @@ locale SchedulingAllocator =
   fixes available :: "Resource set stfun"
   defines "available s \<equiv> - (\<Union>c. alloc s c)"
   fixes higherPriorityClients :: "Client \<Rightarrow> Client set stfun"
-  defines "higherPriorityClients c s \<equiv> set (takeWhile (op \<noteq> c) (sched s))"
+  defines "higherPriorityClients c s \<equiv> set (takeWhile ((\<noteq>) c) (sched s))"
     (* initial state *)
   fixes InitState :: stpred
   defines "InitState \<equiv> PRED ((\<forall>c. id<alloc,#c> = #{} \<and> id<unsat,#c> = #{}) \<and> pool = #{} \<and> sched = #[])"
@@ -35,7 +35,7 @@ locale SchedulingAllocator =
   defines "Allocate c S \<equiv> ACT (#S \<noteq> #{} \<and> (#S \<subseteq> ($available \<inter> id<$unsat,#c>))
                     \<and> #c \<in> set<$sched>
                     \<and> (\<forall>c'. #c' \<in> $higherPriorityClients c \<longrightarrow> id<$unsat,#c'> \<inter> #S = #{})
-                    \<and> sched$ = (if #S = id<$unsat,#c> then (filter (op \<noteq> c))<$sched> else $sched)
+                    \<and> sched$ = (if #S = id<$unsat,#c> then (filter ((\<noteq>) c))<$sched> else $sched)
                     \<and> (updated alloc c (add S))
                     \<and> (updated unsat c (del S))
                     \<and> unchanged pool)"
@@ -144,7 +144,7 @@ lemma square_Next_cases [consumes 1, case_names unchanged Request Schedule Alloc
       S \<subseteq> unsat s c;
       c \<in> set (sched s);
       \<And>c' r'. c' \<in> higherPriorityClients c s \<Longrightarrow> r' \<in> unsat s c' \<Longrightarrow> r' \<in> S \<Longrightarrow> False;
-      sched t = (if S = unsat s c then filter (op \<noteq> c) (sched s) else sched s);
+      sched t = (if S = unsat s c then filter ((\<noteq>) c) (sched s) else sched s);
       alloc t = modifyAt (alloc s) c (add S);
       alloc t c = alloc s c \<union> S;
       unsat t = modifyAt (unsat s) c (del S);
@@ -190,7 +190,7 @@ proof -
       from p show P
       proof (intro Allocate)
         from p show "S \<subseteq> available s" "alloc t = modifyAt (alloc s) c (add S)"
-          "sched t = (if S = unsat s c then filter (op \<noteq> c) (sched s) else sched s)"
+          "sched t = (if S = unsat s c then filter ((\<noteq>) c) (sched s) else sched s)"
           by (auto simp add: Allocate_def updated_def)
         thus "available t = available s - S"
           unfolding available_def
@@ -199,15 +199,15 @@ proof -
            apply (metis add_simp modifyAt_eq_simp)
           by (metis add_simp modifyAt_eq_simp modifyAt_ne_simp)
 
-        have simp2: "set (takeWhile (op \<noteq> c) (filter (op \<noteq> c) cs)) = {x \<in> set cs. c \<noteq> x}" for c :: Client and cs
+        have simp2: "set (takeWhile ((\<noteq>) c) (filter ((\<noteq>) c) cs)) = {x \<in> set cs. c \<noteq> x}" for c :: Client and cs
           by (metis filter_set member_filter set_filter takeWhile_eq_all_conv)
-        have simp3: "set (takeWhile (op \<noteq> c') (filter (op \<noteq> c) cs)) = set (takeWhile (op \<noteq> c') cs) - {c}"
+        have simp3: "set (takeWhile ((\<noteq>) c') (filter ((\<noteq>) c) cs)) = set (takeWhile ((\<noteq>) c') cs) - {c}"
           if p: "c' \<noteq> c" for c c' :: Client and cs using p by (induct cs, auto)
 
         define cs where "cs \<equiv> sched s"
         fix c'
         show "higherPriorityClients c' t = (if S = unsat s c then if c' = c then set (sched t) else higherPriorityClients c' s - {c} else higherPriorityClients c' s)"
-          unfolding higherPriorityClients_def `sched t = (if S = unsat s c then filter (op \<noteq> c) (sched s) else sched s)`
+          unfolding higherPriorityClients_def `sched t = (if S = unsat s c then filter ((\<noteq>) c) (sched s) else sched s)`
           by (fold cs_def, induct cs, auto simp add: simp2 simp3)
       qed (auto simp add: Allocate_def updated_def)
     next 
@@ -395,7 +395,7 @@ proof invariant
 
                 define cs where "cs \<equiv> sched s"
 
-                from c2 have "c2 \<in> set (takeWhile (op \<noteq> c1) (filter (op \<noteq> c) (sched s)))"
+                from c2 have "c2 \<in> set (takeWhile ((\<noteq>) c1) (filter ((\<noteq>) c) (sched s)))"
                   by (auto simp add: higherPriorityClients_def True)
                 also have "... \<subseteq> higherPriorityClients c1 s"
                   unfolding higherPriorityClients_def
@@ -522,7 +522,7 @@ proof (intro WF1_SchedulingAllocator 3 4)
 
   from basevars [OF bv]
   obtain t where t:
-    "sched t = (if S = unsat s c then filter (op \<noteq> c) (sched s) else sched s)"
+    "sched t = (if S = unsat s c then filter ((\<noteq>) c) (sched s) else sched s)"
     "alloc t = modifyAt (alloc s) c (add S)"
     "unsat t = modifyAt (unsat s) c (del S)"
     "pool  t = pool s" by (auto, blast)
@@ -681,7 +681,7 @@ lemma
   assumes Safety_s: "s \<Turnstile> Safety"
     and Next: "(s,t) \<Turnstile> [Next]_vars"
     and scheduled: "c \<in> set (sched s)"
-  shows scheduled_progress: "(s,t) \<Turnstile> (op \<preceq>)<(inductor c)$,$(inductor c)> \<or> #c \<notin> set<sched$>"
+  shows scheduled_progress: "(s,t) \<Turnstile> (\<preceq>)<(inductor c)$,$(inductor c)> \<or> #c \<notin> set<sched$>"
 proof -
   note inductor_precI = iffD2 [OF inductor_prec_eq [OF Safety_s]]
 
@@ -889,7 +889,7 @@ proof (intro unstable_implies_infinitely_often)
         unfolding Safety_def AllocatorInvariant_def by auto
       thus "s \<Turnstile> id<unsat, #blocker> = #{}" by simp
 
-      have "(s, t) \<Turnstile> (op \<preceq>)<inductor c$,$inductor c> \<or> #c \<notin> set<sched$>"
+      have "(s, t) \<Turnstile> (\<preceq>)<inductor c$,$inductor c> \<or> #c \<notin> set<sched$>"
         by (intro scheduled_progress s_Safety Next s)
       with s_Safety consider
         (alloc) "c \<notin> set (sched t)"
@@ -1000,7 +1000,7 @@ proof (intro unstable_implies_infinitely_often)
 
       from s show "s \<Turnstile> available \<inter> id<unsat, hd<sched>> \<noteq> #{}" "s \<Turnstile> sched \<noteq> #[]" by auto
 
-      have "(s, t) \<Turnstile> (op \<preceq>)<inductor c$,$inductor c> \<or> #c \<notin> set<sched$>"
+      have "(s, t) \<Turnstile> (\<preceq>)<inductor c$,$inductor c> \<or> #c \<notin> set<sched$>"
         by (intro scheduled_progress s_Safety Next s)
       with s_Safety consider
         (alloc) "c \<notin> set (sched t)"

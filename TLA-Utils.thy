@@ -8,9 +8,9 @@ syntax
   "_liftUn"     :: "[lift, lift] \<Rightarrow> lift"                ("(_/ \<union> _)" [50, 51] 50)
 
 translations
-  "_liftSubset"   == "_lift2 (op \<subseteq>)"
-  "_liftInter"    == "_lift2 (op \<inter>)"
-  "_liftUn"       == "_lift2 (op \<union>)"
+  "_liftSubset"   == "_lift2 (\<subseteq>)"
+  "_liftInter"    == "_lift2 (\<inter>)"
+  "_liftUn"       == "_lift2 (\<union>)"
 
 lemma imp_imp_leadsto:
   fixes S :: temporal
