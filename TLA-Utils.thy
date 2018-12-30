@@ -13,20 +13,23 @@ translations
   "_liftUn"       == "_lift2 (\<union>)"
 
 lemma imp_imp_leadsto:
-  fixes S :: temporal
   assumes "\<turnstile> F \<longrightarrow> G"
   shows "\<turnstile> S \<longrightarrow> (F \<leadsto> G)"
   apply (auto simp add: Valid_def)
   using ImplLeadsto_simple assms by blast
 
 lemma imp_leadsto_transitive[trans]:
-  fixes S :: temporal
   assumes "\<turnstile> S \<longrightarrow> (F \<leadsto> G)"
   assumes "\<turnstile> S \<longrightarrow> (G \<leadsto> H)"
   shows "\<turnstile> S \<longrightarrow> (F \<leadsto> H)"
   using assms
   apply (auto simp add: Valid_def)
   using LatticeTransitivity by fastforce
+
+lemma imp_eventually_tautology:
+  assumes "\<turnstile> F"
+  shows "\<turnstile> S \<longrightarrow> \<diamond>F"
+  using assms by (smt DmdImplE Valid_def int_simps(1) temp_simps(2) unl_lift2)
 
 lemma temp_impI:
   assumes "sigma \<Turnstile> P \<Longrightarrow> sigma \<Turnstile> Q"
