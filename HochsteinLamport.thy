@@ -58,7 +58,7 @@ definition Safety :: stpred
                   \<and> (\<forall> n. y s n \<in> {None, Some 0, Some 1})
                   \<and> xSet s \<subseteq> {n. n < N}
                   \<and> ySet s \<subseteq> xSet s
-                  \<and> ((\<forall> n < N. x s n = 1) \<longrightarrow> (\<exists> n < N. y s n \<in> {None, Some 1}))"
+                  \<and> (ySet s = {n. n < N} \<longrightarrow> (\<exists> n < N. y s n = Some 1))"
 
 lemma Safety: "\<turnstile> Spec \<longrightarrow> \<box>Safety"
 proof (intro invariantI)
@@ -78,12 +78,15 @@ proof (intro invariantI)
     proof (intro conjI allI impI exI)
       from s_Safety Step1 show "x t n' \<in> {0, 1}" "y t n' \<in> {None, Some 0, Some 1}" for n' unfolding Safety_def apply simp_all by metis
       from s_Safety Step1 show "xSet t \<subseteq> {n. n < N}" "ySet t \<subseteq> xSet t" unfolding Safety_def by auto
-      from Step1 show "n < N" by simp
 
-      from Step1 have "ySet t \<subseteq> ySet s" by simp
-      also from s_Safety have "ySet s \<subseteq> xSet s" unfolding Safety_def by simp
-      also from Step1 have "xSet s \<subseteq> UNIV - {n}" unfolding xSet_def by auto
-      finally show "y t n \<in> {None, Some 1}" unfolding ySet_def by auto
+      from Step1 have "ySet s = ySet t" by simp
+      also assume "ySet t = {n. n < N}"
+      moreover from s_Safety have "ySet s \<subseteq> xSet s" unfolding Safety_def by simp
+      moreover from s_Safety have "xSet s \<subseteq> {n. n < N}" unfolding Safety_def by simp
+      ultimately have "xSet s = {n. n < N}" by auto
+      with Step1 have "n \<in> xSet s" by (auto simp add: xSet_def)
+      with Step1 have False by (simp add: xSet_def)
+      thus "n < N" "y t n = Some 1" by simp_all
     qed
   next
     case (Step2 n j)
@@ -94,9 +97,10 @@ proof (intro invariantI)
       from s_Safety Step2 show "xSet t \<subseteq> {n. n < N}" "ySet t \<subseteq> xSet t" unfolding Safety_def xSet_def ySet_def by auto
       from Step2 show "n < N" by simp
 
-      from Step2 have "y t n = Some (x s j)" by simp
-      also assume allxs: "\<forall>n' < N. x t n' = 1" with Step2 have "Some (x s j) = Some 1" by simp
-      finally show "y t n \<in> {None, Some 1}" by simp
+      assume "ySet t = {n. n < N}"
+      with `ySet t \<subseteq> xSet t` `xSet t \<subseteq> {n. n < N}` have "xSet s = {n. n < N}" using Step2 by simp
+      with Step2 have "x s j = 1" unfolding xSet_def by auto
+      with Step2 show "y t n = Some 1" by simp
     qed
   qed
 qed
@@ -264,16 +268,7 @@ lemma eventually_1: "\<turnstile> Spec \<longrightarrow> \<diamond>(\<exists>n. 
 proof -
   note Termination
   also have "\<turnstile> Spec \<longrightarrow> ((ySet = #{n. n < N}) \<leadsto> (\<exists>n. id<y,#n> = #(Some 1)))"
-  proof (intro imp_INV_leadsto [OF Safety imp_imp_leadsto] intI temp_impI, elim temp_conjE)
-    fix s
-    assume assms: "s \<Turnstile> ySet = #{n. n < N}" "s \<Turnstile> Safety"
-
-    from assms have "\<forall>n < N. x s n = 1" unfolding Safety_def xSet_def by auto
-    with assms have "\<exists>n < N. y s n \<in> {None, Some 1}" unfolding Safety_def by simp
-    moreover from assms have "\<forall>n < N. y s n \<noteq> None" unfolding Safety_def ySet_def by auto
-
-    ultimately show "s \<Turnstile> \<exists>n. id<y, #n> = #(Some 1)" by auto
-  qed
+    by (intro imp_INV_leadsto [OF Safety imp_imp_leadsto] intI temp_impI, elim temp_conjE, auto simp add: Safety_def)
   finally show ?thesis .
 qed
 
