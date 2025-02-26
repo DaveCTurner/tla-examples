@@ -1,5 +1,12 @@
 theory "EWD-pairings"
-  imports Main HOL.Real HOL.NthRoot "./TLA-Utils" "HOL-Analysis.Product_Vector"
+  imports
+    Main
+    HOL.Real
+    HOL.NthRoot
+    "./TLA-Utils"
+    "HOL-Analysis.Product_Vector"
+    "HOL-Analysis.Inner_Product"
+    "HOL-Analysis.Euclidean_Space"
 begin
 
 type_synonym point = "real \<times> real"
@@ -101,7 +108,7 @@ proof -
   have xl: "(x1-x0) * l = (x-x0)" using assms gradient_eq by (auto simp add: l_def p0 p1)
   have yl: "(y1-y0) * l = (y-y0)" using assms gradient_eq
     apply (auto simp add: l_def p0 p1)
-    by (metis eq_iff_diff_eq_0 linordered_field_class.sign_simps(24) nonzero_mult_div_cancel_left)+
+    by (metis eq_iff_diff_eq_0 mult.commute nonzero_mult_div_cancel_left)+
 
   from xl yl have "q - p0 = l *\<^sub>R (p1 - p0)" by (auto simp add: p0 p1 q mult.commute)
   thus ?thesis
@@ -759,7 +766,7 @@ begin
 lemma blueFromRed_range_preserved: "\<turnstile> step \<longrightarrow> $blueFromRed_range \<longrightarrow> blueFromRed_range$"
   apply (intro actionI)
   apply (auto simp add: blueFromRed_range_def square_def step_def swapPoints_def)
-  by (metis (no_types, hide_lams) imageI image_comp swapPoints_def)+
+  by (smt (verit) image_iff)+
 
 lemma blueFromRed_range_Invariant: "\<turnstile> Spec \<longrightarrow> \<box>blueFromRed_range"
 proof invariant
