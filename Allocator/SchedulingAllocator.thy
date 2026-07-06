@@ -108,7 +108,23 @@ lemma higherPriorityClients_filter_eq:
   "set (takeWhile ((\<noteq>) c') (filter ((\<noteq>) c) cs))
     = (if c' = c then set (filter ((\<noteq>) c) cs)
        else set (takeWhile ((\<noteq>) c') cs) - {c})"
-  by (induct cs, auto)
+proof (induct cs)
+  case (Cons a cs)
+  consider (same_stop_drop) "c' = c" "a = c"
+    | (same_stop_keep) "c' = c" "a \<noteq> c"
+    | (drop_head) "c' \<noteq> c" "a = c"
+    | (stop_head) "c' \<noteq> c" "a \<noteq> c" "a = c'"
+    | (keep_head) "c' \<noteq> c" "a \<noteq> c" "a \<noteq> c'"
+    by auto
+  thus ?case
+  proof cases
+    case keep_head
+    have "insert a (set (takeWhile ((\<noteq>) c') cs) - {c})
+        = insert a (set (takeWhile ((\<noteq>) c') cs)) - {c}"
+      using keep_head by blast
+    with Cons keep_head show ?thesis by simp
+  qed (use Cons in simp_all)
+qed simp
 
 lemma square_Next_cases [consumes 1, case_names unchanged Request Schedule Allocate Return]:
   assumes Next: "(s,t) \<Turnstile> [Next]_vars"
