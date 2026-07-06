@@ -104,6 +104,12 @@ lemma SafetyI:
   unfolding Safety_def AllocatorInvariant_def MutualExclusion_def
   using assms by simp
 
+lemma higherPriorityClients_filter_eq:
+  "set (takeWhile ((\<noteq>) c') (filter ((\<noteq>) c) cs))
+    = (if c' = c then set (filter ((\<noteq>) c) cs)
+       else set (takeWhile ((\<noteq>) c') cs) - {c})"
+  by (induct cs, auto)
+
 lemma square_Next_cases [consumes 1, case_names unchanged Request Schedule Allocate Return]:
   assumes Next: "(s,t) \<Turnstile> [Next]_vars"
   assumes unchanged: "
@@ -187,30 +193,28 @@ proof -
     next
       case p: Allocate
       then obtain c S where p: "(s,t) \<Turnstile> Allocate c S" by auto
+      from p have alloc_t: "alloc t = modifyAt (alloc s) c (add S)"
+        and sched_t: "sched t = (if S = unsat s c then filter ((\<noteq>) c) (sched s) else sched s)"
+        and S_available: "S \<subseteq> available s"
+        by (auto simp add: Allocate_def updated_def)
+
+      from alloc_t S_available have available_t: "available t = available s - S"
+        unfolding available_def
+        by (auto simp add: add_def modifyAt_def)
+
+      have hpc_t: "\<And>c'. higherPriorityClients c' t
+          = (if S = unsat s c
+              then if c' = c
+                then set (sched t)
+                else higherPriorityClients c' s - {c}
+              else higherPriorityClients c' s)"
+        unfolding higherPriorityClients_def sched_t
+        by (auto simp add: higherPriorityClients_filter_eq)
+
       from p show P
-      proof (intro Allocate)
-        from p show "S \<subseteq> available s" "alloc t = modifyAt (alloc s) c (add S)"
-          "sched t = (if S = unsat s c then filter ((\<noteq>) c) (sched s) else sched s)"
-          by (auto simp add: Allocate_def updated_def)
-        thus "available t = available s - S"
-          unfolding available_def
-          apply auto
-            apply (metis add_simp modifyAt_eq_simp modifyAt_ne_simp)
-           apply (metis add_simp modifyAt_eq_simp)
-          by (metis add_simp modifyAt_eq_simp modifyAt_ne_simp)
-
-        have "takeWhile ((\<noteq>) c) (filter ((\<noteq>) c) cs) = filter ((\<noteq>) c) cs" for c :: Client and cs by simp
-        hence simp2: "set (takeWhile ((\<noteq>) c) (filter ((\<noteq>) c) cs)) = {x \<in> set cs. c \<noteq> x}" for c :: Client and cs
-          by (metis set_filter)
-        have simp3: "set (takeWhile ((\<noteq>) c') (filter ((\<noteq>) c) cs)) = set (takeWhile ((\<noteq>) c') cs) - {c}"
-          if p: "c' \<noteq> c" for c c' :: Client and cs using p by (induct cs, auto)
-
-        define cs where "cs \<equiv> sched s"
-        fix c'
-        show "higherPriorityClients c' t = (if S = unsat s c then if c' = c then set (sched t) else higherPriorityClients c' s - {c} else higherPriorityClients c' s)"
-          unfolding higherPriorityClients_def `sched t = (if S = unsat s c then filter ((\<noteq>) c) (sched s) else sched s)`
-          by (fold cs_def, induct cs, auto simp add: simp2 simp3)
-      qed (auto simp add: Allocate_def updated_def)
+        unfolding Allocate_def updated_def
+        by (intro Allocate)
+          (auto simp add: alloc_t sched_t available_t hpc_t add_def del_def)
     next 
       case p: Schedule
 

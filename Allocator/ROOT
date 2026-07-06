@@ -1,0 +1,5 @@
+session Allocator = "HOL-TLA" +
+  directories
+    ".."
+  theories
+    Refinement
