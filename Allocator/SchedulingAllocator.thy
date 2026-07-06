@@ -346,13 +346,12 @@ proof invariant
             by (auto simp add: AllocatorInvariant_def modifyAt_def del_def add_def
                 intro: finite_subset [OF S_subset_unsat])
 
-          from AllocatorInvariant have "distinct (sched s)" by (simp add: AllocatorInvariant_def)
-          thus "distinct (sched t)" by auto
+          from AllocatorInvariant show "distinct (sched t)"
+            by (auto simp add: AllocatorInvariant_def)
 
           fix c'
-          from AllocatorInvariant have "alloc s c' \<inter> unsat s c' = {}"
-            by (auto simp add: AllocatorInvariant_def)
-          thus "alloc t c' \<inter> unsat t c' = {}" unfolding Allocate by (cases "c = c'", auto)
+          from AllocatorInvariant show "alloc t c' \<inter> unsat t c' = {}"
+            unfolding Allocate by (cases "c = c'", auto simp add: AllocatorInvariant_def, blast)
         next
           fix c'
           assume c': "c' \<in> set (sched t)"
