@@ -338,10 +338,14 @@ proof invariant
           with MutualExclusion show "c1 \<noteq> c2 \<Longrightarrow> alloc t c1 \<inter> alloc t c2 = {}" for c1 c2
             by (auto simp add: MutualExclusion_def modifyAt_def)
 
-          from AllocatorInvariant
+          from AllocatorInvariant have finite_unsat_c: "finite (unsat s c)"
+            by (simp add: AllocatorInvariant_def)
+          from Allocate finite_unsat_c have finite_S: "finite S"
+            by (metis finite_subset)
+
+          from AllocatorInvariant finite_S
           show "finite (unsat t c')" "finite (alloc t c')" for c'
-             apply (auto simp add: AllocatorInvariant_def modifyAt_def del_def add_def)
-            by (meson `S \<subseteq> unsat s c` infinite_super)
+            by (auto simp add: AllocatorInvariant_def modifyAt_def del_def add_def)
 
           from AllocatorInvariant have "distinct (sched s)" by (simp add: AllocatorInvariant_def)
           thus "distinct (sched t)" by auto
