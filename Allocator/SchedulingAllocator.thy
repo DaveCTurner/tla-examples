@@ -180,6 +180,7 @@ lemma square_Next_cases [consumes 1, case_names unchanged Request Schedule Alloc
       pool t = pool s;
       sched t = sched s;
       available s \<subseteq> available t;
+      \<And>r. s \<Turnstile> MutualExclusion \<Longrightarrow> r \<in> alloc s c \<Longrightarrow> r \<notin> alloc t c \<Longrightarrow> r \<in> available t;
       \<And>c'. higherPriorityClients c' t = higherPriorityClients c' s
     \<rbrakk> \<Longrightarrow> P"
   shows P
@@ -234,10 +235,22 @@ proof -
     next
       case p: (Return c S)
       from p show P
-        apply (intro Return [where S = S and c = c])
-               apply (simp_all add: Return_def updated_def higherPriorityClients_def,
-            auto simp add: available_def Return_def updated_def)
-        by (metis del_simp modifyAt_eq_simp modifyAt_ne_simp)
+      proof (intro Return [where S = S and c = c])
+        show "r \<in> available t"
+          if MutualExclusion: "s \<Turnstile> MutualExclusion"
+            and r_allocated: "r \<in> alloc s c"
+            and r_freed: "r \<notin> alloc t c"
+          for r
+        proof -
+          from p r_allocated r_freed have "r \<in> S"
+            by (auto simp add: Return_def updated_def modifyAt_def del_def)
+          moreover from MutualExclusion r_allocated have "c' \<noteq> c \<Longrightarrow> r \<notin> alloc s c'" for c'
+            by (auto simp add: MutualExclusion_def)
+          ultimately show ?thesis
+            using p by (auto simp add: available_def Return_def updated_def modifyAt_def del_def)
+        qed
+      qed (auto simp add: Return_def updated_def higherPriorityClients_def
+          available_def modifyAt_def del_def)
     qed
   next
     assume "(s,t) \<Turnstile> unchanged vars" with unchanged show P by (auto simp add: vars_def available_def higherPriorityClients_def)
@@ -925,9 +938,10 @@ proof (intro unstable_implies_infinitely_often)
             proof (cases "r \<in> S'")
               case False with r Return c'_blocker show ?thesis by auto
             next
-              case True with Return s_Safety r c'_blocker have "r \<in> available t"
-                unfolding available_def Safety_def MutualExclusion_def apply auto
-                by (metis Diff_disjoint del_def disjoint_iff_not_equal modifyAt_eq_simp modifyAt_ne_simp)
+              case True
+              with Return c'_blocker have "r \<notin> alloc t blocker" by auto
+              with s_Safety Return c'_blocker r have "r \<in> available t"
+                by (auto simp add: Safety_def)
               with same s r Return show ?thesis by auto
             qed
           qed
@@ -951,10 +965,11 @@ proof (intro unstable_implies_infinitely_often)
       next
         case same
         from s obtain r where r: "r \<in> unsat s (hd (sched s))" "r \<in> alloc s blocker" by auto
-        from r s_Safety alloc_t_blocker_eq Return have "r \<in> unsat s (hd (sched s)) \<inter> available t"
-          unfolding available_def Safety_def MutualExclusion_def Return_def updated_def
-          apply auto
-          by (metis alloc_t_blocker_eq disjoint_iff_not_equal inf.idem modifyAt_ne_simp)
+        from Return have alloc_t: "alloc t = modifyAt (alloc s) blocker (del S')"
+          by (auto simp add: Return_def updated_def)
+        from r s_Safety alloc_t_blocker_eq alloc_t have "r \<in> unsat s (hd (sched s)) \<inter> available t"
+          unfolding Safety_def MutualExclusion_def available_def
+          by (auto simp add: modifyAt_def del_def)
         with s same show ?thesis unfolding Return_simps by auto
       qed
     qed
