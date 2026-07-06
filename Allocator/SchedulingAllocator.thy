@@ -436,10 +436,9 @@ proof invariant
                   assume r: "r \<in> alloc s c"
                   thus ?thesis by (intro hyp, simp)
                 next
-                  from c2 False have "unsat s c2 \<inter> S = {}" by (intro higher_priority_disjoint, simp)
-                  moreover note r2t
-                  moreover assume "r \<in> S"
-                  ultimately show False by (cases "c2 = c", auto simp add: modifyAt_def)                
+                  assume "r \<in> S"
+                  with c2 False r2t show False
+                    by (cases "c2 = c", auto simp add: modifyAt_def dest: higher_priority_disjoint)
                 qed
               next
                 case False
