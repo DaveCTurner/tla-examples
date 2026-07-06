@@ -327,6 +327,7 @@ proof invariant
         qed (auto simp add: AllocatorInvariant_def)
       next
         case [simp]: (Allocate c S)
+        from Allocate have S_subset_unsat: "S \<subseteq> unsat s c" by auto
 
         from AllocatorInvariant
         show ?thesis
@@ -340,7 +341,7 @@ proof invariant
 
           from AllocatorInvariant have finite_unsat_c: "finite (unsat s c)"
             by (simp add: AllocatorInvariant_def)
-          from Allocate finite_unsat_c have finite_S: "finite S"
+          from S_subset_unsat finite_unsat_c have finite_S: "finite S"
             by (metis finite_subset)
 
           from AllocatorInvariant finite_S
@@ -360,9 +361,9 @@ proof invariant
           show "unsat t c' \<noteq> {}"
           proof (cases "c' = c")
             case [simp]: True
-            from c' have "S \<noteq> unsat s c" by auto
-            with `S \<subseteq> unsat s c` show ?thesis
-              apply (auto simp add: del_def) using Allocate(3) by auto
+            from c' have S_ne_unsat: "S \<noteq> unsat s c" by auto
+            from S_subset_unsat S_ne_unsat have "S \<subset> unsat s c" by (rule psubsetI)
+            thus ?thesis by (auto simp add: del_def)
           next
             case False
             from c' have "c' \<in> set (sched s)" by (cases "S = unsat s c", auto)
