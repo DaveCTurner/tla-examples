@@ -164,6 +164,7 @@ lemma square_Next_cases [consumes 1, case_names unchanged Request Schedule Alloc
       unsat t c = unsat s c - S;
       pool t = pool s;
       available t = available s - S;
+      \<And>c'. c' \<in> higherPriorityClients c s \<Longrightarrow> unsat s c' \<inter> available t = unsat s c' \<inter> available s;
       \<And>c'. higherPriorityClients c' t
           = (if S = unsat s c
               then if c' = c
@@ -746,23 +747,8 @@ proof -
 
           have blocked_eq[simp]:
             "(unsat s (hd (sched s)) \<inter> available s = {}) = (unsat s (hd (sched s)) \<inter> available t = {})"
-            (is "?LHS = ?RHS")
-          proof (intro iffI Int_emptyI)
-            fix r assume "?LHS" "r \<in> unsat s (hd (sched s))" "r \<in> available t"
-            with Allocate show False by auto
-          next
-            fix r assume r: "?RHS" "r \<in> unsat s (hd (sched s))" "r \<in> available s"
-            show False
-            proof (cases "r \<in> S'")
-              case False with r Allocate show False by auto
-            next
-              case True
-              from c'_ne_hd Allocate have "hd (sched s) \<in> higherPriorityClients c' s"
-                unfolding higherPriorityClients_def
-                by (cases "sched s", auto)
-              with True Allocate r show False by auto
-            qed
-          qed
+            using c'_ne_hd Allocate
+            unfolding higherPriorityClients_def by (cases "sched s", auto)
 
           have "inductor c t = inductor c s" by (simp add: inductor_def)
           thus ?thesis by (simp add: prec_eq_Inductor_def)
@@ -788,23 +774,8 @@ proof -
 
         have blocked_eq[simp]:
           "(unsat s (hd (sched s)) \<inter> available s = {}) = (unsat s (hd (sched s)) \<inter> available t = {})"
-          (is "?LHS = ?RHS")
-        proof (intro iffI Int_emptyI)
-          fix r assume "?LHS" "r \<in> unsat s (hd (sched s))" "r \<in> available t"
-          with Allocate show False by auto
-        next
-          fix r assume r: "?RHS" "r \<in> unsat s (hd (sched s))" "r \<in> available s"
-          show False
-          proof (cases "r \<in> S'")
-            case False with r Allocate show False by auto
-          next
-            case True
-            from c'_ne_hd Allocate have "hd (sched s) \<in> higherPriorityClients c' s"
-              unfolding higherPriorityClients_def
-              by (cases "sched s", auto)
-            with True Allocate r show False by auto
-          qed
-        qed
+          using c'_ne_hd Allocate
+          unfolding higherPriorityClients_def by (cases "sched s", auto)
 
         with hpc_eq have "inductor c t = inductor c s" by (simp add: inductor_def)
         thus ?thesis by (simp add: prec_eq_Inductor_def)
