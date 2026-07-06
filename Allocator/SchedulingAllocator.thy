@@ -331,6 +331,8 @@ proof invariant
         from Allocate have higher_priority_disjoint:
           "c' \<in> higherPriorityClients c s \<Longrightarrow> unsat s c' \<inter> S = {}" for c'
           by auto
+        have scheduled_t_subset_s: "set (sched t) \<subseteq> set (sched s)"
+          by (cases "S = unsat s c", auto)
 
         from AllocatorInvariant
         show ?thesis
@@ -369,7 +371,7 @@ proof invariant
             thus ?thesis by (auto simp add: del_def)
           next
             case False
-            from c' have "c' \<in> set (sched s)" by (cases "S = unsat s c", auto)
+            from c' scheduled_t_subset_s have "c' \<in> set (sched s)" by auto
             with AllocatorInvariant False show ?thesis
               unfolding AllocatorInvariant_def by simp
           qed
@@ -398,9 +400,8 @@ proof invariant
               from AllocatorInvariant
               have "c1 \<in> set (sched s) \<Longrightarrow> c2 \<in> higherPriorityClients c1 s \<Longrightarrow> alloc s c1 \<inter> unsat s c2 = {}"
                 unfolding AllocatorInvariant_def by auto
-              moreover from c1 have "c1 \<in> set (sched s)" by (cases "S = unsat s c", auto)
               moreover from r2t have "r \<in> unsat s c2" by (cases "c2 = c", auto simp add: modifyAt_def)
-              ultimately show False using ps by auto
+              ultimately show False using ps c1 scheduled_t_subset_s by auto
             qed
 
             show False
