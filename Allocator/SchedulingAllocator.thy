@@ -199,8 +199,9 @@ proof -
            apply (metis add_simp modifyAt_eq_simp)
           by (metis add_simp modifyAt_eq_simp modifyAt_ne_simp)
 
-        have simp2: "set (takeWhile ((\<noteq>) c) (filter ((\<noteq>) c) cs)) = {x \<in> set cs. c \<noteq> x}" for c :: Client and cs
-          by (metis filter_set member_filter set_filter takeWhile_eq_all_conv)
+        have "takeWhile ((\<noteq>) c) (filter ((\<noteq>) c) cs) = filter ((\<noteq>) c) cs" for c :: Client and cs by simp
+        hence simp2: "set (takeWhile ((\<noteq>) c) (filter ((\<noteq>) c) cs)) = {x \<in> set cs. c \<noteq> x}" for c :: Client and cs
+          by (metis set_filter)
         have simp3: "set (takeWhile ((\<noteq>) c') (filter ((\<noteq>) c) cs)) = set (takeWhile ((\<noteq>) c') cs) - {c}"
           if p: "c' \<noteq> c" for c c' :: Client and cs using p by (induct cs, auto)
 
