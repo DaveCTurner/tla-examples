@@ -337,12 +337,9 @@ proof invariant
         from AllocatorInvariant
         show ?thesis
         proof (intro SafetyI)
-          have "alloc t c \<inter> alloc t c' = {}" if ne: "c' \<noteq> c" for c'
-            using ne MutualExclusion `S \<subseteq> available s`
-            by (auto simp add: available_def MutualExclusion_def, blast+)
-
-          with MutualExclusion show "c1 \<noteq> c2 \<Longrightarrow> alloc t c1 \<inter> alloc t c2 = {}" for c1 c2
-            by (auto simp add: MutualExclusion_def modifyAt_def)
+          from MutualExclusion `S \<subseteq> available s`
+          show "c1 \<noteq> c2 \<Longrightarrow> alloc t c1 \<inter> alloc t c2 = {}" for c1 c2
+            by (auto simp add: MutualExclusion_def modifyAt_def available_def, blast+)
 
           from AllocatorInvariant have finite_unsat_c: "finite (unsat s c)"
             by (simp add: AllocatorInvariant_def)
