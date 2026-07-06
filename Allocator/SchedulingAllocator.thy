@@ -341,14 +341,10 @@ proof invariant
           show "c1 \<noteq> c2 \<Longrightarrow> alloc t c1 \<inter> alloc t c2 = {}" for c1 c2
             by (auto simp add: MutualExclusion_def modifyAt_def available_def, blast+)
 
-          from AllocatorInvariant have finite_unsat_c: "finite (unsat s c)"
-            by (simp add: AllocatorInvariant_def)
-          from S_subset_unsat finite_unsat_c have finite_S: "finite S"
-            by (metis finite_subset)
-
-          from AllocatorInvariant finite_S
+          from AllocatorInvariant S_subset_unsat
           show "finite (unsat t c')" "finite (alloc t c')" for c'
-            by (auto simp add: AllocatorInvariant_def modifyAt_def del_def add_def)
+            by (auto simp add: AllocatorInvariant_def modifyAt_def del_def add_def
+                intro: finite_subset [OF S_subset_unsat])
 
           from AllocatorInvariant have "distinct (sched s)" by (simp add: AllocatorInvariant_def)
           thus "distinct (sched t)" by auto
