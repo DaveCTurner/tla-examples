@@ -181,18 +181,17 @@ proof -
   proof (elim disjE)
     assume "(s,t) \<Turnstile> Next"
     then consider
-      (Request)    "\<exists> c S. (s,t) \<Turnstile> Request c S"
-      | (Schedule)        "(s,t) \<Turnstile> Schedule"
-      | (Allocate) "\<exists> c S. (s,t) \<Turnstile> Allocate c S"
-      | (Return)   "\<exists> c S. (s,t) \<Turnstile> Return c S"
-      unfolding Next_def apply auto by blast
+      (Request) c S where "(s,t) \<Turnstile> Request c S"
+      | (Schedule) "(s,t) \<Turnstile> Schedule"
+      | (Allocate) c S where "(s,t) \<Turnstile> Allocate c S"
+      | (Return) c S where "(s,t) \<Turnstile> Return c S"
+      unfolding Next_def by auto
     thus P
     proof cases
-      case p: Request with Request show P unfolding Request_def updated_def
+      case p: (Request c S) with Request show P unfolding Request_def updated_def
         by (auto simp add: add_def available_def higherPriorityClients_def)
     next
-      case p: Allocate
-      then obtain c S where p: "(s,t) \<Turnstile> Allocate c S" by auto
+      case p: (Allocate c S)
       from p have alloc_t: "alloc t = modifyAt (alloc s) c (add S)"
         and sched_t: "sched t = (if S = unsat s c then filter ((\<noteq>) c) (sched s) else sched s)"
         and S_available: "S \<subseteq> available s"
@@ -225,9 +224,8 @@ proof -
         apply (intro Schedule [of poolOrder])
         by (auto simp add: Schedule_def available_def higherPriorityClients_def)
     next
-      case p: Return 
-      then obtain c S where "(s,t) \<Turnstile> Return c S" by auto
-      thus P
+      case p: (Return c S)
+      from p show P
         apply (intro Return [where S = S and c = c])
                apply (simp_all add: Return_def updated_def higherPriorityClients_def,
             auto simp add: available_def Return_def updated_def)
