@@ -328,6 +328,9 @@ proof invariant
       next
         case [simp]: (Allocate c S)
         from Allocate have S_subset_unsat: "S \<subseteq> unsat s c" by auto
+        from Allocate have higher_priority_disjoint:
+          "c' \<in> higherPriorityClients c s \<Longrightarrow> unsat s c' \<inter> S = {}" for c'
+          by auto
 
         from AllocatorInvariant
         show ?thesis
@@ -426,15 +429,13 @@ proof invariant
               show ?thesis
               proof (cases "c1 = c")
                 case [simp]: True
-                have p1: "alloc t c1 = S \<union> alloc s c" by (auto simp add: add_def)
-
                 from r1 have "r \<in> S \<union> alloc s c" by (auto simp add: add_def)
                 thus ?thesis
                 proof (elim UnE)
                   assume r: "r \<in> alloc s c"
                   thus ?thesis by (intro hyp, simp)
                 next
-                  from c2 False have "unsat s c2 \<inter> S = {}" using Allocate(5) by auto
+                  from c2 False have "unsat s c2 \<inter> S = {}" by (intro higher_priority_disjoint, simp)
                   moreover note r2t
                   moreover assume "r \<in> S"
                   ultimately show False by (cases "c2 = c", auto simp add: modifyAt_def)                
