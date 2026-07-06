@@ -906,25 +906,24 @@ proof (intro unstable_implies_infinitely_often)
           with s have "hd (sched s) \<noteq> c'" by auto
           with Request s show ?thesis by auto
         next
-          case (Schedule poolOrder)
-          from s have "hd (sched t) = hd (sched s)" by (cases "sched s", auto simp add: Schedule)
-          with s show ?thesis by (simp add: Schedule)
+          case [simp]: (Schedule poolOrder)
+          from s have "hd (sched t) = hd (sched s)" by (cases "sched s", auto)
+          with s show ?thesis by simp
         next
-          case (Allocate c' S')
-          from Allocate blocker_satisfied have blocker_ne: "blocker \<noteq> c'" by auto
+          case [simp]: (Allocate c' S')
+          with blocker_satisfied have blocker_ne: "blocker \<noteq> c'" by blast
           show ?thesis
           proof (cases "c' = hd (sched s)")
             case True
-            with Allocate s have "S' \<noteq> unsat s c'" by (auto simp add: available_def)
+            with s Allocate have "S' \<noteq> unsat s c'" by fast
             with blocker_ne True Allocate have "unsat t (hd (sched t)) \<inter> alloc t blocker = unsat s (hd (sched s)) \<inter> alloc s blocker"
               by (auto simp add: True del_def available_def)
             with s show ?thesis by simp
           next
             case False
-            moreover from False s have "hd (sched t) = hd (sched s)" by (cases "sched s", auto simp add: Allocate)
-            moreover from blocker_ne have alloc_blocker_eq: "alloc t blocker = alloc s blocker" by (simp add: Allocate)
-            moreover note s
-            ultimately show ?thesis by (simp add: Allocate)
+            moreover from False s have "hd (sched t) = hd (sched s)" by (cases "sched s", auto)
+            moreover from blocker_ne have alloc_blocker_eq: "alloc t blocker = alloc s blocker" by simp
+            ultimately show ?thesis using s by simp
           qed
         next
           case (Return c' S')
