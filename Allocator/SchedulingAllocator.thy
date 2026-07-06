@@ -110,19 +110,19 @@ lemma higherPriorityClients_filter_eq:
        else set (takeWhile ((\<noteq>) c') cs) - {c})"
 proof (induct cs)
   case (Cons a cs)
-  consider (same_stop_drop) "c' = c" "a = c"
-    | (same_stop_keep) "c' = c" "a \<noteq> c"
-    | (drop_head) "c' \<noteq> c" "a = c"
-    | (stop_head) "c' \<noteq> c" "a \<noteq> c" "a = c'"
-    | (keep_head) "c' \<noteq> c" "a \<noteq> c" "a \<noteq> c'"
+  consider           "c' = c" "a = c"
+    |                "c' = c" "a \<noteq> c"
+    |                "c' \<noteq> c" "a = c"
+    |                "c' \<noteq> c" "a \<noteq> c" "a = c'"
+    | (all_distinct) "c' \<noteq> c" "a \<noteq> c" "a \<noteq> c'"
     by auto
   thus ?case
   proof cases
-    case keep_head
+    case all_distinct
     have "insert a (set (takeWhile ((\<noteq>) c') cs) - {c})
         = insert a (set (takeWhile ((\<noteq>) c') cs)) - {c}"
-      using keep_head by blast
-    with Cons keep_head show ?thesis by simp
+      using all_distinct by blast
+    with Cons all_distinct show ?thesis by simp
   qed (use Cons in simp_all)
 qed simp
 
