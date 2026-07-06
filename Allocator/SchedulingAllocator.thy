@@ -110,19 +110,11 @@ lemma higherPriorityClients_filter_eq:
        else set (takeWhile ((\<noteq>) c') cs) - {c})"
 proof (induct cs)
   case (Cons a cs)
-  consider           "a = c"         
-    |                "a \<noteq> c" "c' = c"
-    |                "a \<noteq> c" "c' \<noteq> c" "a = c'"
-    | (all_distinct) "a \<noteq> c" "c' \<noteq> c" "a \<noteq> c'"
-    by auto
-  thus ?case
-  proof cases
-    case all_distinct
-    have "insert a (set (takeWhile ((\<noteq>) c') cs) - {c})
-        = insert a (set (takeWhile ((\<noteq>) c') cs)) - {c}"
-      using all_distinct by blast
-    with Cons all_distinct show ?thesis by simp
-  qed (use Cons in simp_all)
+  have insert_Diff: "a \<noteq> c \<Longrightarrow> insert a (A - {c}) = insert a A - {c}" for A
+    by blast
+  show ?case using Cons
+    by (cases "a = c"; cases "c' = c"; cases "a = c'";
+        simp add: insert_Diff)
 qed simp
 
 lemma square_Next_cases [consumes 1, case_names unchanged Request Schedule Allocate Return]:
