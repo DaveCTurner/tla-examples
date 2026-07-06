@@ -362,7 +362,7 @@ proof invariant
           proof (cases "c' = c")
             case [simp]: True
             from c' have S_ne_unsat: "S \<noteq> unsat s c" by auto
-            from S_subset_unsat S_ne_unsat have "S \<subset> unsat s c" by (rule psubsetI)
+            from S_subset_unsat S_ne_unsat have "S \<subset> unsat s c" by (metis psubsetI)
             thus ?thesis by (auto simp add: del_def)
           next
             case False
