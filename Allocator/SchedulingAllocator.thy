@@ -457,8 +457,7 @@ proof invariant
         proof (intro SafetyI)
           from MutualExclusion
           show "c1 \<noteq> c2 \<Longrightarrow> alloc t c1 \<inter> alloc t c2 = {}" for c1 c2
-            apply (auto simp add: MutualExclusion_def modifyAt_def)
-            by blast+
+            by (auto simp add: MutualExclusion_def modifyAt_def, blast+)
 
           from AllocatorInvariant
           show "c1 \<in> set (sched t) \<Longrightarrow> c2 \<in> higherPriorityClients c1 t \<Longrightarrow> alloc t c1 \<inter> unsat t c2 = {}" for c1 c2
