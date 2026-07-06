@@ -403,14 +403,11 @@ proof invariant
                 from True c1 have ne1: "c1 \<noteq> c" by auto
                 with r1 show "r \<in> alloc s c1" by auto
 
-                define cs where "cs \<equiv> sched s"
-
                 from c2 have "c2 \<in> set (takeWhile ((\<noteq>) c1) (filter ((\<noteq>) c) (sched s)))"
                   by (auto simp add: higherPriorityClients_def True)
-                also have "... \<subseteq> higherPriorityClients c1 s"
+                with ne1 show c2: "c2 \<in> higherPriorityClients c1 s"
                   unfolding higherPriorityClients_def
-                  apply (fold cs_def) using ne1 by (induct cs, auto)
-                finally show c2: "c2 \<in> ..." .
+                  by (simp add: higherPriorityClients_filter_eq)
               qed
 
             next
