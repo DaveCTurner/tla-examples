@@ -110,11 +110,10 @@ lemma higherPriorityClients_filter_eq:
        else set (takeWhile ((\<noteq>) c') cs) - {c})"
 proof (induct cs)
   case (Cons a cs)
-  consider           "c' = c" "a = c"
-    |                "c' = c" "a \<noteq> c"
-    |                "c' \<noteq> c" "a = c"
-    |                "c' \<noteq> c" "a \<noteq> c" "a = c'"
-    | (all_distinct) "c' \<noteq> c" "a \<noteq> c" "a \<noteq> c'"
+  consider           "a = c"         
+    |                "a \<noteq> c" "c' = c"
+    |                "a \<noteq> c" "c' \<noteq> c" "a = c'"
+    | (all_distinct) "a \<noteq> c" "c' \<noteq> c" "a \<noteq> c'"
     by auto
   thus ?case
   proof cases
