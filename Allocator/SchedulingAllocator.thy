@@ -804,7 +804,7 @@ proof -
     next
       case False
       with Return have "unsat s (hd (sched s)) \<inter> available t \<noteq> {}" "unsat s (hd (sched s)) \<inter> available s = {}"
-        by (auto simp add: Return modifyAt_def, blast+)
+        by auto
       with Return have "inductor c t \<prec> inductor c s" by (intro inductor_precI, auto)
       thus ?thesis by (simp add: prec_eq_Inductor_def)
     qed
@@ -930,7 +930,7 @@ proof (intro unstable_implies_infinitely_often)
           case (Return c' S')
           show ?thesis
           proof (cases "c' = blocker")
-            case False with Return s show ?thesis by auto
+            case False with Return s show ?thesis by simp
           next
             case c'_blocker: True
             from s obtain r where r: "r \<in> unsat s (hd (sched s))" "r \<in> alloc s blocker" by auto
@@ -938,9 +938,7 @@ proof (intro unstable_implies_infinitely_often)
             proof (cases "r \<in> S'")
               case False with r Return c'_blocker show ?thesis by auto
             next
-              case True
-              with Return c'_blocker have "r \<notin> alloc t blocker" by auto
-              with s_Safety Return c'_blocker r have "r \<in> available t"
+              case True with Return s_Safety r c'_blocker have "r \<in> available t"
                 by (auto simp add: Safety_def)
               with same s r Return show ?thesis by auto
             qed
