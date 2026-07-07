@@ -25,7 +25,6 @@ lemma del_simp[simp]: "(r \<in> del A B) = (r \<notin> A \<and> r \<in> B)" by (
 
 lemma wf_less_finite:
   shows "wf {(S1, S2). finite S2 \<and> S1 \<subset> S2}"
-  by (rule iffD1 [OF cong [OF refl, where f = wf and x = finite_psubset]],
-      simp_all, auto simp add: finite_psubset_def)
+  by (auto simp add: finite_psubset_def intro: wf_subset [OF wf_finite_psubset])
 
 end
