@@ -892,10 +892,6 @@ proof (intro unstable_implies_infinitely_often)
                                \<and> id<unsat, hd<sched>> \<inter> id<alloc, #blocker> \<noteq> #{} \<or> #c \<notin> set<sched>
                     \<or> (\<exists>i'. #(i' \<prec> i) \<and> #i' = inductor c \<and> #c \<in> set<sched>)"
       proof cases
-        case alloc thus ?thesis by simp
-      next
-        case progress thus ?thesis by (auto simp add: s)
-      next
         case same
 
         from Next have "unsat t (hd (sched t)) \<inter> alloc t blocker \<noteq> {}"
@@ -945,7 +941,7 @@ proof (intro unstable_implies_infinitely_often)
         qed
 
         with same s show ?thesis by auto
-      qed
+      qed (auto simp add: s)
 
       assume "(s, t) \<Turnstile> <\<exists>S. id<$unsat, #blocker> = #{} \<and> id<$alloc, #blocker> = #S \<and> Return blocker S>_vars"
       hence  alloc_t_blocker_eq: "alloc t blocker = {}" and Return_simps: "sched t = sched s" "unsat t = unsat s"
@@ -956,10 +952,6 @@ proof (intro unstable_implies_infinitely_often)
       from progress_cases
       show "t \<Turnstile> #c \<notin> set<sched> \<or> (\<exists>i'. #(i' \<prec> i) \<and> #i' = inductor c \<and> #c \<in> set<sched>)"
       proof cases
-        case alloc thus ?thesis by simp
-      next
-        case progress thus ?thesis by (auto simp add: s)
-      next
         case same
         from s obtain r where r: "r \<in> unsat s (hd (sched s))" "r \<in> alloc s blocker" by auto
         from Return have alloc_t: "alloc t = modifyAt (alloc s) blocker (del S')"
@@ -968,7 +960,7 @@ proof (intro unstable_implies_infinitely_often)
           unfolding Safety_def MutualExclusion_def available_def
           by (auto simp add: modifyAt_def del_def)
         with s same show ?thesis unfolding Return_simps by auto
-      qed
+      qed (auto simp add: s)
     qed
     finally show "\<turnstile> SchedulingAllocator \<longrightarrow> (#i = inductor c \<and> #c \<in> set<sched> \<and> id<unsat, hd<sched>> \<inter> available = #{} \<leadsto> #c \<notin> set<sched> \<or> (\<exists>i'. #(i' \<prec> i) \<and> #i' = inductor c \<and> #c \<in> set<sched>)) ".
 
@@ -1039,15 +1031,13 @@ proof (intro unstable_implies_infinitely_often)
             case c'_hd[simp]: True
             show ?thesis
             proof (cases "S' = unsat s c'")
-              case False with s same Allocate show ?thesis by auto
-            next
               case True
               moreover from True same have "c \<noteq> hd (sched s)" unfolding Allocate by auto
               moreover from same have "higherPriorityClients c t = higherPriorityClients c s" by simp
               ultimately have False unfolding higherPriorityClients_def Allocate
                 using s apply (cases "sched s") apply auto using set_takeWhileD by fastforce
               thus ?thesis by simp
-            qed
+            qed (use s same Allocate in auto)
           qed
         qed
       qed
