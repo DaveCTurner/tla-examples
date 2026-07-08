@@ -147,7 +147,7 @@ proof (cases loopExists)
           with cc' have "(c, c) \<in> trancl r" by auto
           with noLoop less show False by auto
         qed
-        show "finite S" sorry
+        show "finite S" using finiteList by (simp add: less.prems)
         show "(headCell, c') \<in> rtrancl r" sorry
         show "S' = {c''. (c', c'') \<in> rtrancl r }" by (simp add: S'_def)
       qed
