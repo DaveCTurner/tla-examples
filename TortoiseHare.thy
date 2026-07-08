@@ -134,41 +134,18 @@ proof (cases loopExists)
     thus ?case
     proof (cases "nextCell c")
       case (Some c')
-      hence cc': "(c, c') \<in> r" by (auto simp add: r_def)
-
       define S' where "S' = {c''. (c', c'') \<in> rtrancl r }"
+      
+      have S'_subset_S: "S' \<subseteq> S" sorry
 
-      have S'_subset_S: "S' \<subseteq> S"
-        unfolding S'_def
-      proof (intro subsetI, elim CollectE)
-        fix c'' assume "(c', c'') \<in> rtrancl r"
-        with cc' show "c'' \<in> S" by (simp add: less)
+      have "\<exists>c'\<in>S'. nextCell c' = None"
+      proof (intro less.hyps iffD2 [OF in_finite_psubset] conjI psubsetI notI S'_subset_S)
+        show "False" if "S' = S" sorry
+        show "finite S" sorry
+        show "(headCell, c') \<in> rtrancl r" sorry
+        show "S' = {c''. (c', c'') \<in> rtrancl r }" by (simp add: S'_def)
       qed
-
-      have S'_psubset_S: "S' \<subset> S"
-      proof (intro psubsetI S'_subset_S notI)
-        assume "S' = S"
-        have "c \<in> S" by (simp add: less)
-        with \<open>S' = S\<close> have "(c', c) \<in> rtrancl r" by (auto simp add: S'_def)
-        from rtranclD [OF this] have "(c, c) \<in> trancl r"
-        proof (elim disjE conjE)
-          assume "c' = c" with cc' show ?thesis by auto
-        next
-          note cc' also assume "(c', c) \<in> trancl r" 
-          finally show ?thesis.
-        qed
-        with noLoop less.prems show False by auto
-      qed
-
-      have "\<exists>c'' \<in> S'. nextCell c'' = None"
-      proof (rule less.hyps)
-        from finiteList less have "finite S" by auto
-        with S'_psubset_S show "(S', S) \<in> finite_psubset" by simp
-        from less have "(headCell, c) \<in> rtrancl r" by simp also note cc'
-        finally show "(headCell, c') \<in> rtrancl r".
-        show "S' = {c''. (c', c'') \<in> rtrancl r}" by (simp add: S'_def)
-      qed
-      with S'_subset_S show ?thesis by auto
+      with S'_subset_S show ?thesis by blast
     qed auto
   qed
   from terminal False show ?thesis by auto
