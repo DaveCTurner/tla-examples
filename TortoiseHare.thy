@@ -128,7 +128,7 @@ proof (cases loopExists)
   have terminal: "\<exists>c' \<in> S. nextCell c' = None"
     if hd_c: "(headCell, c) \<in> rtrancl r"
      and S_def: "S = {c'. (c, c') \<in> rtrancl r}" for S c
-    using wf_finite_psubset finiteList [of c] hd_c S_def
+    using wf_finite_psubset hd_c S_def
   proof (induct S arbitrary: c rule: wf_induct_rule)
     case (less S)
     thus ?case
@@ -162,11 +162,11 @@ proof (cases loopExists)
 
       have "\<exists>c'' \<in> S'. nextCell c'' = None"
       proof (rule less.hyps)
-        from S'_psubset_S less show "(S', S) \<in> finite_psubset" by simp
+        from finiteList less have "finite S" by auto
+        with S'_psubset_S show "(S', S) \<in> finite_psubset" by simp
         from less have "(headCell, c) \<in> rtrancl r" by simp also note cc'
         finally show "(headCell, c') \<in> rtrancl r".
         show "S' = {c''. (c', c'') \<in> rtrancl r}" by (simp add: S'_def)
-        from finiteList show "finite {c''. (c', c'') \<in> rtrancl r}" by simp
       qed
       with S'_subset_S show ?thesis by auto
     qed auto
