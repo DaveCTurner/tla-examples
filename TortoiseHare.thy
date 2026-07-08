@@ -136,19 +136,18 @@ proof (cases loopExists)
       case (Some c')
       define S' where "S' = {c''. (c', c'') \<in> rtrancl r }"
       
-      have S'_subset_S: "S' \<subseteq> S"
-      proof (intro subsetI)
-        fix c''
-        assume "c'' \<in> S'"
-        hence "(c', c'') \<in> rtrancl r" by (simp add: S'_def)
-        moreover from Some have "(c, c') \<in> r" by (auto simp add: r_def)
-        ultimately have "(c, c'') \<in> rtrancl r" by auto
-        with less show "c'' \<in> S" by auto
-      qed
-
+      from Some have cc': "(c, c') \<in> r" by (auto simp add: r_def)
+      hence S'_subset_S: "S' \<subseteq> S" unfolding S'_def less.prems by auto
+   
       have "\<exists>c'\<in>S'. nextCell c' = None"
       proof (intro less.hyps iffD2 [OF in_finite_psubset] conjI psubsetI notI S'_subset_S)
-        show "False" if "S' = S" sorry
+        show "False" if "S' = S"
+        proof -
+          have "c \<in> S" by (simp add: less)
+          with that have "(c', c) \<in> rtrancl r" by (auto simp add: S'_def)
+          from rtranclD [OF this] cc' have "(c, c) \<in> trancl r" by auto
+          with noLoop less show False by auto
+        qed
         show "finite S" sorry
         show "(headCell, c') \<in> rtrancl r" sorry
         show "S' = {c''. (c', c'') \<in> rtrancl r }" by (simp add: S'_def)
