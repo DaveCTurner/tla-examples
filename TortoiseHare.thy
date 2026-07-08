@@ -164,41 +164,37 @@ qed
 
 lemma loopExists_no_end:
   "loopExists = (\<forall> c. (headCell, c) \<in> rtrancl r \<longrightarrow> nextCell c \<noteq> None)"
-proof (cases loopExists)
-  case False
-  hence noLoop: "\<And>c. (headCell, c) \<in> rtrancl r \<Longrightarrow> (c,c) \<notin> trancl r" by (auto simp add: loopExists_def)
-
-  have terminal: "\<exists>c'. (c, c') \<in> rtrancl r \<and> nextCell c' = None"
-    if "(headCell, c) \<in> rtrancl r" for c
-    using that
-  proof (induct rule: reachable_suffix_induct)
-    case (End c)
-    thus ?case by auto
-  next
-    case (Loop c c')
-    from Loop have "(c, c') \<in> r" "(c', c) \<in> rtrancl r" by (auto simp add: r_def)
-    hence "(c, c) \<in> trancl r" by auto
-    with noLoop Loop show ?case by auto
-  next
-    case (Step c c')
-    then obtain c'' where "(c', c'') \<in> rtrancl r" and "nextCell c'' = None" by auto
-    with Step show ?case by auto
-  qed
-  from terminal False show ?thesis by auto
-next
-  case True
+proof (intro iffI)
+  assume "loopExists"
   with loopExists_always_ahead obtain cLoop
     where hd_cLoop: "(headCell, cLoop) \<in> rtrancl r"
       and cLoop: "\<And>c. (headCell, c) \<in> rtrancl r \<Longrightarrow> (c, cLoop) \<in> trancl r" by auto
 
-  show ?thesis
-  proof (intro iffI allI impI notI True)
+  show "\<forall> c. (headCell, c) \<in> rtrancl r \<longrightarrow> nextCell c \<noteq> None"
+  proof (intro allI impI notI)
     fix c assume "(headCell, c) \<in> rtrancl r"
     hence "(c, cLoop) \<in> trancl r" by (simp add: cLoop)
     then obtain c' where "(c, c') \<in> r" by (metis tranclD)
     moreover assume "nextCell c = None"
     ultimately show False by (simp add: r_def)
   qed
+next
+  assume noEnd: "\<forall> c. (headCell, c) \<in> rtrancl r \<longrightarrow> nextCell c \<noteq> None"
+  have "\<exists>cLoop. (c, cLoop) \<in> rtrancl r \<and> (cLoop, cLoop) \<in> trancl r"
+    if "(headCell, c) \<in> rtrancl r" for c
+    using that noEnd
+  proof (induct rule: reachable_suffix_induct)
+    case (Loop c c')
+    from Loop have cc': "(c, c') \<in> r" by (auto simp add: r_def)
+    from Loop have "(c', c) \<in> rtrancl r" by auto
+    with cc' have "(c, c) \<in> trancl r" by auto
+    thus ?case by auto
+  next
+    case (Step c c')
+    then obtain cLoop where "(c', cLoop) \<in> rtrancl r" and "(cLoop, cLoop) \<in> trancl r" by blast
+    with Step show ?case by blast
+  qed auto
+  thus loopExists unfolding loopExists_def by force
 qed
 
 end
