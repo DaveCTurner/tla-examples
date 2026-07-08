@@ -119,6 +119,69 @@ proof -
   qed
 qed
 
+lemma reachable_suffix_induct [consumes 2, case_names End Loop Step]:
+  assumes hd_c: "(headCell, c) \<in> rtrancl r"
+    and S_def: "S = {c'. (c, c') \<in> rtrancl r}"
+    and End: "\<And>c S. \<lbrakk>
+        (headCell, c) \<in> rtrancl r;
+        S = {c'. (c, c') \<in> rtrancl r};
+        nextCell c = None
+      \<rbrakk> \<Longrightarrow> P c S"
+    and Loop: "\<And>c S c' S'. \<lbrakk>
+        (headCell, c) \<in> rtrancl r;
+        S = {c''. (c, c'') \<in> rtrancl r};
+        nextCell c = Some c';
+        S' = {c''. (c', c'') \<in> rtrancl r};
+        S' = S
+      \<rbrakk> \<Longrightarrow> P c S"
+    and Step: "\<And>c S c' S'. \<lbrakk>
+        (headCell, c) \<in> rtrancl r;
+        S = {c''. (c, c'') \<in> rtrancl r};
+        nextCell c = Some c';
+        S' = {c''. (c', c'') \<in> rtrancl r};
+        S' \<subset> S;
+        P c' S'
+      \<rbrakk> \<Longrightarrow> P c S"
+  shows "P c S"
+  using wf_finite_psubset hd_c S_def
+proof (induct S arbitrary: c rule: wf_induct_rule)
+  case (less S)
+  show ?case
+  proof (cases "nextCell c")
+    case None
+    with less show ?thesis by (intro End)
+  next
+    case (Some c')
+    define S' where "S' = {c''. (c', c'') \<in> rtrancl r}"
+
+    from Some have cc': "(c, c') \<in> r" by (auto simp add: r_def)
+    hence S'_subset_S: "S' \<subseteq> S" unfolding S'_def less.prems by auto
+
+    show ?thesis
+    proof (cases "S' = S")
+      case True
+      with less Some S'_def show ?thesis by (intro Loop)
+    next
+      case False
+      with S'_subset_S have S'_psubset_S: "S' \<subset> S" by auto
+      moreover from finiteList less have "finite S" by auto
+      ultimately have "(S', S) \<in> finite_psubset" by simp
+      moreover from less cc' have "(headCell, c') \<in> rtrancl r" by auto
+      moreover note S'_def
+      ultimately have IH: "P c' S'" by (rule less.hyps)
+      show ?thesis
+      proof (rule Step)
+        from less show "(headCell, c) \<in> rtrancl r" by simp
+        from less show "S = {c''. (c, c'') \<in> rtrancl r}" by simp
+        from Some show "nextCell c = Some c'".
+        from S'_def show "S' = {c''. (c', c'') \<in> rtrancl r}".
+        from S'_psubset_S show "S' \<subset> S".
+        from IH show "P c' S'".
+      qed
+    qed
+  qed
+qed
+
 lemma loopExists_no_end:
   "loopExists = (\<forall> c. (headCell, c) \<in> rtrancl r \<longrightarrow> nextCell c \<noteq> None)"
 proof (cases loopExists)
@@ -128,30 +191,14 @@ proof (cases loopExists)
   have terminal: "\<exists>c' \<in> S. nextCell c' = None"
     if "S = {c'. (c, c') \<in> rtrancl r}" and "(headCell, c) \<in> rtrancl r"
     for S c
-    using wf_finite_psubset that
-  proof (induct S arbitrary: c rule: wf_induct_rule)
-    case (less S)
-    thus ?case
-    proof (cases "nextCell c")
-      case (Some c')
-      define S' where "S' = {c''. (c', c'') \<in> rtrancl r }"
-      
-      from Some have cc': "(c, c') \<in> r" by (auto simp add: r_def)
-      hence S'_subset_S: "S' \<subseteq> S" unfolding S'_def less.prems by auto
-   
-      have "\<exists>c'\<in>S'. nextCell c' = None"
-      proof (intro less.hyps iffD2 [OF in_finite_psubset] conjI psubsetI notI S'_subset_S)
-        show "finite S" using finiteList by (simp add: less.prems)
-        show "(headCell, c') \<in> rtrancl r" using less cc' by auto
-        show "S' = {c''. (c', c'') \<in> rtrancl r }" by (simp add: S'_def)
-        assume "S' = S"
-        hence "(c', c) \<in> rtrancl r" by (auto simp add: S'_def less)
-        with cc' have "(c, c) \<in> trancl r" by auto
-        with noLoop less show False by auto
-      qed
-      with S'_subset_S show ?thesis by blast
-    qed auto
-  qed
+    using that(2,1)
+  proof (induct rule: reachable_suffix_induct)
+    case (Loop c S c' S')
+    from Loop have cc': "(c, c') \<in> r" by (auto simp add: r_def)
+    from Loop have "(c', c) \<in> rtrancl r" by auto
+    with cc' have "(c, c) \<in> trancl r" by auto
+    with noLoop Loop show ?case by auto
+  qed auto
   from terminal False show ?thesis by auto
 next
   case True
