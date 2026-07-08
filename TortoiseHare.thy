@@ -125,13 +125,10 @@ proof (cases loopExists)
   case False
   hence noLoop: "\<And>c. (headCell, c) \<in> rtrancl r \<Longrightarrow> (c,c) \<notin> trancl r" by (auto simp add: loopExists_def)
 
-  define c where "c \<equiv> headCell"
-  have hd_c: "(headCell, c) \<in> rtrancl r" by (auto simp add: c_def)
-
-  define S where "S = { c'. (c, c') \<in> rtrancl r }"
-  from finiteList have finite_S: "finite S" by (simp add: S_def)
-
-  from wf_finite_psubset finite_S hd_c S_def have "\<exists> c' \<in> S. nextCell c' = None"
+  have terminal: "\<exists>c' \<in> S. nextCell c' = None"
+    if finite_S: "finite S" and hd_c: "(headCell, c) \<in> rtrancl r"
+     and S_def: "S = {c'. (c, c') \<in> rtrancl r}" for S c
+    using wf_finite_psubset finite_S hd_c S_def
   proof (induct S arbitrary: c rule: wf_induct_rule)
     case (less S)
     thus ?case
@@ -167,7 +164,7 @@ proof (cases loopExists)
       with S'_subset_S show ?thesis by auto
     qed auto
   qed
-  with False show ?thesis by (auto simp add: S_def c_def)
+  from terminal False finiteList [of headCell] show ?thesis by auto
 next
   case True
   with loopExists_always_ahead obtain cLoop
