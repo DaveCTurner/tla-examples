@@ -91,6 +91,49 @@ proof (induct rule: rtrancl_induct)
   with loop show ?case by (intro unique_successor)
 qed simp
 
+lemma reachable_suffix_induct [consumes 1, case_names End Loop Step]:
+  assumes hd_c: "(headCell, c) \<in> rtrancl r"
+    and End: "\<And>c. \<lbrakk> (headCell, c) \<in> rtrancl r; nextCell c = None \<rbrakk> \<Longrightarrow> P c"
+    and Loop: "\<And>c c'. \<lbrakk> (headCell, c) \<in> rtrancl r;
+        nextCell c = Some c';
+        {c''. (c, c'') \<in> rtrancl r} = {c''. (c', c'') \<in> rtrancl r}
+      \<rbrakk> \<Longrightarrow> P c"
+    and Step: "\<And>c c'. \<lbrakk> (headCell, c) \<in> rtrancl r;
+        nextCell c = Some c';
+        {c''. (c', c'') \<in> rtrancl r} \<subset> {c''. (c, c'') \<in> rtrancl r};
+        P c' \<rbrakk> \<Longrightarrow> P c"
+  shows "P c"
+  using wf_finite_psubset hd_c
+proof (induct "{c''. (c, c'') \<in> rtrancl r}" arbitrary: c rule: wf_induct_rule)
+  case (less c)
+  show ?case
+  proof (cases "nextCell c")
+    case None
+    with less show ?thesis by (intro End)
+  next
+    case (Some c')
+    define S' where "S' = {c''. (c', c'') \<in> rtrancl r}"
+    show ?thesis
+    proof (cases "S' = {c''. (c, c'') \<in> rtrancl r}")
+      case True
+      with less Some S'_def show ?thesis by (intro Loop; simp)
+    next
+      case False
+      show ?thesis
+      proof (intro Step [of c c'] psubsetI subsetI notI CollectI less.hyps iffD2 [OF in_finite_psubset] conjI; (elim CollectE)?)
+        from less show "(headCell, c) \<in> rtrancl r" by simp
+        from Some show "nextCell c = Some c'".
+        hence cc': "(c, c') \<in> r" by (simp add: r_def)
+        thus "(c, c'') \<in> rtrancl r" if "(c', c'') \<in> rtrancl r" for c'' using that by force
+        thus "(c, c'') \<in> rtrancl r" if "(c', c'') \<in> rtrancl r" for c'' using that by force
+        from False show False and False if "{c''. (c', c'') \<in> r\<^sup>*} = {c''. (c, c'') \<in> r\<^sup>*}" using that unfolding S'_def by simp+
+        from cc' less.prems show "(headCell, c') \<in> rtrancl r" by force
+        show "finite {c''. (c, c'') \<in> r\<^sup>*}" using finiteList by blast
+      qed
+    qed
+  qed
+qed
+
 lemma loopExists_always_ahead:
   assumes "loopExists"
   shows "\<exists> c. (headCell, c) \<in> rtrancl r \<and> (\<forall> c'. (headCell, c') \<in> rtrancl r \<longrightarrow> (c', c) \<in> trancl r)"
@@ -119,85 +162,28 @@ proof -
   qed
 qed
 
-lemma reachable_suffix_induct [consumes 2, case_names End Loop Step]:
-  assumes S_def: "S = {c'. (c, c') \<in> rtrancl r}"
-    and hd_c: "(headCell, c) \<in> rtrancl r"
-    and End: "\<And>c S. \<lbrakk>
-        (headCell, c) \<in> rtrancl r;
-        S = {c'. (c, c') \<in> rtrancl r};
-        nextCell c = None
-      \<rbrakk> \<Longrightarrow> P c S"
-    and Loop: "\<And>c S c' S'. \<lbrakk>
-        (headCell, c) \<in> rtrancl r;
-        S = {c''. (c, c'') \<in> rtrancl r};
-        nextCell c = Some c';
-        S' = {c''. (c', c'') \<in> rtrancl r};
-        S' = S
-      \<rbrakk> \<Longrightarrow> P c S"
-    and Step: "\<And>c S c' S'. \<lbrakk>
-        (headCell, c) \<in> rtrancl r;
-        S = {c''. (c, c'') \<in> rtrancl r};
-        nextCell c = Some c';
-        S' = {c''. (c', c'') \<in> rtrancl r};
-        S' \<subset> S;
-        P c' S'
-      \<rbrakk> \<Longrightarrow> P c S"
-  shows "P c S"
-  using wf_finite_psubset hd_c S_def
-proof (induct S arbitrary: c rule: wf_induct_rule)
-  case (less S)
-  show ?case
-  proof (cases "nextCell c")
-    case None
-    with less show ?thesis by (intro End)
-  next
-    case (Some c')
-    define S' where "S' = {c''. (c', c'') \<in> rtrancl r}"
-
-    from Some have cc': "(c, c') \<in> r" by (auto simp add: r_def)
-    hence S'_subset_S: "S' \<subseteq> S" unfolding S'_def less.prems by auto
-
-    show ?thesis
-    proof (cases "S' = S")
-      case True
-      with less Some S'_def show ?thesis by (intro Loop)
-    next
-      case False
-      with S'_subset_S have S'_psubset_S: "S' \<subset> S" by auto
-      moreover from finiteList less have "finite S" by auto
-      ultimately have "(S', S) \<in> finite_psubset" by simp
-      moreover from less cc' have "(headCell, c') \<in> rtrancl r" by auto
-      moreover note S'_def
-      ultimately have IH: "P c' S'" by (rule less.hyps)
-      show ?thesis
-      proof (rule Step)
-        from less show "(headCell, c) \<in> rtrancl r" by simp
-        from less show "S = {c''. (c, c'') \<in> rtrancl r}" by simp
-        from Some show "nextCell c = Some c'".
-        from S'_def show "S' = {c''. (c', c'') \<in> rtrancl r}".
-        from S'_psubset_S show "S' \<subset> S".
-        from IH show "P c' S'".
-      qed
-    qed
-  qed
-qed
-
 lemma loopExists_no_end:
   "loopExists = (\<forall> c. (headCell, c) \<in> rtrancl r \<longrightarrow> nextCell c \<noteq> None)"
 proof (cases loopExists)
   case False
   hence noLoop: "\<And>c. (headCell, c) \<in> rtrancl r \<Longrightarrow> (c,c) \<notin> trancl r" by (auto simp add: loopExists_def)
 
-  have terminal: "\<exists>c' \<in> S. nextCell c' = None"
-    if "S = {c'. (c, c') \<in> rtrancl r}" and "(headCell, c) \<in> rtrancl r"
-    for S c
+  have terminal: "\<exists>c'. (c, c') \<in> rtrancl r \<and> nextCell c' = None"
+    if "(headCell, c) \<in> rtrancl r" for c
     using that
   proof (induct rule: reachable_suffix_induct)
-    case (Loop c S c' S')
+    case (End c)
+    thus ?case by auto
+  next
+    case (Loop c c')
     from Loop have "(c, c') \<in> r" "(c', c) \<in> rtrancl r" by (auto simp add: r_def)
     hence "(c, c) \<in> trancl r" by auto
     with noLoop Loop show ?case by auto
-  qed auto
+  next
+    case (Step c c')
+    then obtain c'' where "(c', c'') \<in> rtrancl r" and "nextCell c'' = None" by auto
+    with Step show ?case by auto
+  qed
   from terminal False show ?thesis by auto
 next
   case True
