@@ -141,17 +141,13 @@ proof (cases loopExists)
    
       have "\<exists>c'\<in>S'. nextCell c' = None"
       proof (intro less.hyps iffD2 [OF in_finite_psubset] conjI psubsetI notI S'_subset_S)
-        show "False" if "S' = S"
-        proof -
-          from that have "(c', c) \<in> rtrancl r" by (auto simp add: S'_def less)
-          with cc' have "(c, c) \<in> trancl r" by auto
-          with noLoop less show False by auto
-        qed
         show "finite S" using finiteList by (simp add: less.prems)
-        from less have "(headCell, c) \<in> rtrancl r" by simp
-        also note cc'
-        finally show "(headCell, c') \<in> rtrancl r".
+        show "(headCell, c') \<in> rtrancl r" using less cc' by auto
         show "S' = {c''. (c', c'') \<in> rtrancl r }" by (simp add: S'_def)
+        assume "S' = S"
+        hence "(c', c) \<in> rtrancl r" by (auto simp add: S'_def less)
+        with cc' have "(c, c) \<in> trancl r" by auto
+        with noLoop less show False by auto
       qed
       with S'_subset_S show ?thesis by blast
     qed auto
