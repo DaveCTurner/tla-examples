@@ -143,9 +143,8 @@ proof (cases loopExists)
       proof (intro less.hyps iffD2 [OF in_finite_psubset] conjI psubsetI notI S'_subset_S)
         show "False" if "S' = S"
         proof -
-          have "c \<in> S" by (simp add: less)
-          with that have "(c', c) \<in> rtrancl r" by (auto simp add: S'_def)
-          from rtranclD [OF this] cc' have "(c, c) \<in> trancl r" by auto
+          from that have "(c', c) \<in> rtrancl r" by (auto simp add: S'_def less)
+          with cc' have "(c, c) \<in> trancl r" by auto
           with noLoop less show False by auto
         qed
         show "finite S" sorry
