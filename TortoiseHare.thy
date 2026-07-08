@@ -126,9 +126,9 @@ proof (cases loopExists)
   hence noLoop: "\<And>c. (headCell, c) \<in> rtrancl r \<Longrightarrow> (c,c) \<notin> trancl r" by (auto simp add: loopExists_def)
 
   have terminal: "\<exists>c' \<in> S. nextCell c' = None"
-    if finite_S: "finite S" and hd_c: "(headCell, c) \<in> rtrancl r"
+    if hd_c: "(headCell, c) \<in> rtrancl r"
      and S_def: "S = {c'. (c, c') \<in> rtrancl r}" for S c
-    using wf_finite_psubset finite_S hd_c S_def
+    using wf_finite_psubset finiteList [of c] hd_c S_def
   proof (induct S arbitrary: c rule: wf_induct_rule)
     case (less S)
     thus ?case
@@ -145,26 +145,33 @@ proof (cases loopExists)
         with cc' show "c'' \<in> S" by (simp add: less)
       qed
 
-      have "\<exists>c'' \<in> S'. nextCell c'' = None"
-      proof (intro less iffD2 [OF in_finite_psubset] conjI psubsetI S'_subset_S notI)
-        from less have "(headCell, c) \<in> rtrancl r" by simp also note cc'
-        finally show "(headCell, c') \<in> rtrancl r".
-        from less S'_subset_S show "finite S'" using infinite_super by blast
+      have S'_psubset_S: "S' \<subset> S"
+      proof (intro psubsetI S'_subset_S notI)
+        assume "S' = S"
         have "c \<in> S" by (simp add: less)
-        moreover assume "S' = S"
-        ultimately have "(c', c) \<in> rtrancl r" by (auto simp add: S'_def)
-        from rtranclD [OF this] show False
+        with \<open>S' = S\<close> have "(c', c) \<in> rtrancl r" by (auto simp add: S'_def)
+        from rtranclD [OF this] have "(c, c) \<in> trancl r"
         proof (elim disjE conjE)
-          assume "c' = c" with cc' noLoop less show False by auto
+          assume "c' = c" with cc' show ?thesis by auto
         next
           note cc' also assume "(c', c) \<in> trancl r" 
-          finally show False using noLoop less by auto
+          finally show ?thesis.
         qed
-      qed (simp add: S'_def)
+        with noLoop less.prems show False by auto
+      qed
+
+      have "\<exists>c'' \<in> S'. nextCell c'' = None"
+      proof (rule less.hyps)
+        from S'_psubset_S less show "(S', S) \<in> finite_psubset" by simp
+        from less have "(headCell, c) \<in> rtrancl r" by simp also note cc'
+        finally show "(headCell, c') \<in> rtrancl r".
+        show "S' = {c''. (c', c'') \<in> rtrancl r}" by (simp add: S'_def)
+        from finiteList show "finite {c''. (c', c'') \<in> rtrancl r}" by simp
+      qed
       with S'_subset_S show ?thesis by auto
     qed auto
   qed
-  from terminal False finiteList [of headCell] show ?thesis by auto
+  from terminal False show ?thesis by auto
 next
   case True
   with loopExists_always_ahead obtain cLoop
