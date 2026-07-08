@@ -126,9 +126,9 @@ proof (cases loopExists)
   hence noLoop: "\<And>c. (headCell, c) \<in> rtrancl r \<Longrightarrow> (c,c) \<notin> trancl r" by (auto simp add: loopExists_def)
 
   have terminal: "\<exists>c' \<in> S. nextCell c' = None"
-    if hd_c: "(headCell, c) \<in> rtrancl r"
-     and S_def: "S = {c'. (c, c') \<in> rtrancl r}" for S c
-    using wf_finite_psubset hd_c S_def
+    if "S = {c'. (c, c') \<in> rtrancl r}" and "(headCell, c) \<in> rtrancl r"
+    for S c
+    using wf_finite_psubset that
   proof (induct S arbitrary: c rule: wf_induct_rule)
     case (less S)
     thus ?case
