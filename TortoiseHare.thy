@@ -120,8 +120,8 @@ proof -
 qed
 
 lemma reachable_suffix_induct [consumes 2, case_names End Loop Step]:
-  assumes hd_c: "(headCell, c) \<in> rtrancl r"
-    and S_def: "S = {c'. (c, c') \<in> rtrancl r}"
+  assumes S_def: "S = {c'. (c, c') \<in> rtrancl r}"
+    and hd_c: "(headCell, c) \<in> rtrancl r"
     and End: "\<And>c S. \<lbrakk>
         (headCell, c) \<in> rtrancl r;
         S = {c'. (c, c') \<in> rtrancl r};
@@ -191,12 +191,11 @@ proof (cases loopExists)
   have terminal: "\<exists>c' \<in> S. nextCell c' = None"
     if "S = {c'. (c, c') \<in> rtrancl r}" and "(headCell, c) \<in> rtrancl r"
     for S c
-    using that(2,1)
+    using that
   proof (induct rule: reachable_suffix_induct)
     case (Loop c S c' S')
-    from Loop have cc': "(c, c') \<in> r" by (auto simp add: r_def)
-    from Loop have "(c', c) \<in> rtrancl r" by auto
-    with cc' have "(c, c) \<in> trancl r" by auto
+    from Loop have "(c, c') \<in> r" "(c', c) \<in> rtrancl r" by (auto simp add: r_def)
+    hence "(c, c) \<in> trancl r" by auto
     with noLoop Loop show ?case by auto
   qed auto
   from terminal False show ?thesis by auto
