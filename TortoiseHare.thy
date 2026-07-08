@@ -136,7 +136,15 @@ proof (cases loopExists)
       case (Some c')
       define S' where "S' = {c''. (c', c'') \<in> rtrancl r }"
       
-      have S'_subset_S: "S' \<subseteq> S" sorry
+      have S'_subset_S: "S' \<subseteq> S"
+      proof (intro subsetI)
+        fix c''
+        assume "c'' \<in> S'"
+        hence "(c', c'') \<in> rtrancl r" by (simp add: S'_def)
+        moreover from Some have "(c, c') \<in> r" by (auto simp add: r_def)
+        ultimately have "(c, c'') \<in> rtrancl r" by auto
+        with less show "c'' \<in> S" by auto
+      qed
 
       have "\<exists>c'\<in>S'. nextCell c' = None"
       proof (intro less.hyps iffD2 [OF in_finite_psubset] conjI psubsetI notI S'_subset_S)
