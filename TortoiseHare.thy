@@ -148,7 +148,9 @@ proof (cases loopExists)
           with noLoop less show False by auto
         qed
         show "finite S" using finiteList by (simp add: less.prems)
-        show "(headCell, c') \<in> rtrancl r" sorry
+        from less have "(headCell, c) \<in> rtrancl r" by simp
+        also note cc'
+        finally show "(headCell, c') \<in> rtrancl r".
         show "S' = {c''. (c', c'') \<in> rtrancl r }" by (simp add: S'_def)
       qed
       with S'_subset_S show ?thesis by blast
